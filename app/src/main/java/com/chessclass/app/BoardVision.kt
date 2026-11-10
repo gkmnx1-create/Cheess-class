@@ -15,6 +15,7 @@ object BoardVision {
     private val fallbackClassifier = PieceClassifier()
     private var aiClassifier: LiteRtSquareClassifier? = null
     private var lastGrid: Array<CharArray>? = null
+    private var lastFen: String? = null
     // Unknown until a real move is observed. A static mid-game screenshot does not
     // contain enough information to determine whose turn it is.
     private var sideToMove: Side? = null
