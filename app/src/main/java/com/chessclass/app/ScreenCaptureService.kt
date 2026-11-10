@@ -42,6 +42,7 @@ class ScreenCaptureService : Service() {
             return START_NOT_STICKY
         }
 
+        BoardVision.reset()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Ekran yakalama başlatılıyor..."))
 
