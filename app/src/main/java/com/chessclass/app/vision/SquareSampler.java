@@ -54,6 +54,23 @@ public class SquareSampler {
         float mR = sR / count, mG = sG / count, mB = sB / count;
         float meanLum = 0.299f * mR + 0.587f * mG + 0.114f * mB;
 
+        // Normalize shape features to reduce sensitivity to brightness,
+        // shadows, and light/dark square tint across piece themes.
+        float featureMean = 0f;
+        for (float v : lumGrid) featureMean += v;
+        featureMean /= lumGrid.length;
+        float variance = 0f;
+        for (float v : lumGrid) {
+            float d = v - featureMean;
+            variance += d * d;
+        }
+        float featureStd = (float) Math.sqrt(variance / lumGrid.length);
+        if (featureStd < 0.035f) featureStd = 0.035f;
+        float[] normalizedFeature = new float[N * N];
+        for (int i = 0; i < lumGrid.length; i++) {
+            normalizedFeature[i] = (lumGrid[i] - featureMean) / featureStd;
+        }
+
         float edge = 0;
         for (int y = 1; y < N - 1; y++) {
             for (int x = 1; x < N - 1; x++) {
@@ -65,7 +82,7 @@ public class SquareSampler {
         }
         edge /= (N - 2) * (N - 2);
 
-        return new Sample(lumGrid, mR, mG, mB, meanLum, (float) Math.sqrt(edge));
+        return new Sample(normalizedFeature, mR, mG, mB, meanLum, (float) Math.sqrt(edge));
     }
 
     public static float lumDistance(float[] a, float[] b) {
