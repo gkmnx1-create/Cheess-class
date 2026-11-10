@@ -379,8 +379,8 @@ class OverlayService : Service() {
             val value = values[piece.lowercaseChar()] ?: 0
             balance += if (piece.isUpperCase()) value else -value
         }
-        val scoreMatch = Regex("""score cp (-?\\d+)""").find(engineOutput)
-        val mateMatch = Regex("""score mate (-?\\d+)""").find(engineOutput)
+        val scoreMatch = Regex("""score cp (-?\d+)""").find(engineOutput)
+        val mateMatch = Regex("""score mate (-?\d+)""").find(engineOutput)
         val score = scoreMatch?.groupValues?.get(1)?.toIntOrNull()
         val mover = if (fen.split(" ").getOrNull(1) == "b") "Siyah" else "Beyaz"
         val position = when {
