@@ -10,6 +10,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
+    private var waitingForOverlayPermission = false
+    private var startupStarted = false
+
     private val captureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -27,17 +30,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Launcher activity is only a permission hand-off; the floating G is the app UI.
-        if (!Settings.canDrawOverlays(this)) {
+        if (Settings.canDrawOverlays(this)) {
+            startFloatingUiAndRequestCapture()
+        } else {
+            waitingForOverlayPermission = true
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
             startActivity(intent)
-            finish()
-            return
         }
+    }
 
+    override fun onResume() {
+        super.onResume()
+        if (waitingForOverlayPermission && Settings.canDrawOverlays(this)) {
+            waitingForOverlayPermission = false
+            startFloatingUiAndRequestCapture()
+        }
+    }
+
+    private fun startFloatingUiAndRequestCapture() {
+        if (startupStarted) return
+        startupStarted = true
+
+        // Start with only the floating G bubble. The panel opens only after the user taps G.
         startService(Intent(this, OverlayService::class.java))
 
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
