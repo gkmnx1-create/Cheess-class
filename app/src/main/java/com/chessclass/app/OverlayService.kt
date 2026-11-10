@@ -84,6 +84,12 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
+        val status = TextView(this).apply {
+            text = " "
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+        }
         val button = Button(this).apply {
             text = label
             isAllCaps = false
@@ -93,12 +99,6 @@ class OverlayService : Service() {
                 status.text = "✓"
                 status.setTextColor(0xFF70D69A.toInt())
             }
-        }
-        val status = TextView(this).apply {
-            text = " "
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(8), 0, 0, 0)
         }
         row.addView(button)
         row.addView(status)
