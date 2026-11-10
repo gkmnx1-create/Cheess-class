@@ -17,7 +17,9 @@ public class BoardDetector {
     }
 
     private static final String TAG = "OC/Detector";
-    private static final int WORK_MAX_EDGE = 360;
+    // Keep the full 720px capture edge for more precise automatic board localization.
+    // Board dimensions are detected from the image; this is not a fixed board size.
+    private static final int WORK_MAX_EDGE = 720;
     private static final double ACCEPT_THRESHOLD = 10.0;
 
     public static Board locate(Bitmap src) {
