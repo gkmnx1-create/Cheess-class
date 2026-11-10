@@ -117,8 +117,11 @@ class OverlayService : Service() {
                         bubbleParams.y = startY + (event.rawY - downY).toInt()
                         windowManager.updateViewLayout(view, bubbleParams)
                         suggestionParams?.let { params ->
-                            params.y = bubbleParams.y + dp(8)
-                            windowManager.updateViewLayout(suggestionView, params)
+                            params.x = bubbleParams.x + bubbleParams.width + dp(2)
+                            params.y = bubbleParams.y
+                            suggestionView?.let { suggestion ->
+                                try { windowManager.updateViewLayout(suggestion, params) } catch (_: Exception) {}
+                            }
                         }
                         true
                     }
@@ -322,15 +325,16 @@ class OverlayService : Service() {
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.END or Gravity.CENTER_VERTICAL
-                x = dp(78)
-                y = bubbleParams.y + dp(8)
+                x = bubbleParams.x + bubbleParams.width + dp(2)
+                y = bubbleParams.y
             }
             windowManager.addView(it, suggestionParams)
         }
         view.text = move
         view.visibility = View.VISIBLE
         suggestionParams?.let { params ->
-            params.y = bubbleParams.y + dp(8)
+            params.x = bubbleParams.x + bubbleParams.width + dp(2)
+            params.y = bubbleParams.y
             try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
         }
     }
