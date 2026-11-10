@@ -13,14 +13,21 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
+    private var projectionCallback: MediaProjection.Callback? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
+    private var frameCount = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (projection != null) return START_NOT_STICKY
+
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data = if (Build.VERSION.SDK_INT >= 33) {
             intent?.getParcelableExtra(EXTRA_DATA, Intent::class.java)
@@ -34,21 +41,37 @@ class ScreenCaptureService : Service() {
         }
 
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForeground(NOTIFICATION_ID, buildNotification("Ekran yakalama başlatılıyor..."))
 
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         projection = manager.getMediaProjection(resultCode, data)
-        projection?.registerCallback(object : MediaProjection.Callback() {
+        projectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
-                releaseCapture()
+                releaseCapture(stopProjection = false)
                 stopSelf()
             }
-        }, null)
+        }
+        projection?.registerCallback(projectionCallback!!, mainHandler)
 
         val metrics = resources.displayMetrics
         imageReader = ImageReader.newInstance(
             metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2
         )
+        imageReader?.setOnImageAvailableListener({ reader ->
+            val image = reader.acquireLatestImage()
+            if (image != null) {
+                image.close()
+                frameCount++
+                if (frameCount == 1 || frameCount % 30 == 0) {
+                    val managerNotification = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                    managerNotification.notify(
+                        NOTIFICATION_ID,
+                        buildNotification("Ekran alınıyor • $frameCount kare yakalandı")
+                    )
+                }
+            }
+        }, mainHandler)
+
         virtualDisplay = projection?.createVirtualDisplay(
             "ChessClassScreenCapture",
             metrics.widthPixels,
@@ -57,17 +80,17 @@ class ScreenCaptureService : Service() {
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             imageReader?.surface,
             null,
-            null
+            mainHandler
         )
         return START_NOT_STICKY
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(message: String): Notification {
         val builder = if (Build.VERSION.SDK_INT >= 26)
             Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
         return builder
             .setContentTitle("CHESS CLASS ekran yakalama")
-            .setContentText("Ekran yakalama açık. Durdurmak için bildirime dokunup uygulamayı kapat.")
+            .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true)
             .build()
@@ -83,13 +106,15 @@ class ScreenCaptureService : Service() {
         }
     }
 
-    private fun releaseCapture() {
+    private fun releaseCapture(stopProjection: Boolean = true) {
+        imageReader?.setOnImageAvailableListener(null, null)
         virtualDisplay?.release()
         virtualDisplay = null
         imageReader?.close()
         imageReader = null
-        projection?.unregisterCallback(object : MediaProjection.Callback() {})
-        projection?.stop()
+        projectionCallback?.let { projection?.unregisterCallback(it) }
+        projectionCallback = null
+        if (stopProjection) projection?.stop()
         projection = null
     }
 
