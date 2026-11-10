@@ -80,11 +80,29 @@ class OverlayService : Service() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun addMenuOption(box: LinearLayout, label: String, action: () -> Unit) {
-        box.addView(Button(this).apply {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val button = Button(this).apply {
             text = label
             isAllCaps = false
-            setOnClickListener { action() }
-        })
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener {
+                action()
+                status.text = "✓"
+                status.setTextColor(0xFF70D69A.toInt())
+            }
+        }
+        val status = TextView(this).apply {
+            text = " "
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+        }
+        row.addView(button)
+        row.addView(status)
+        box.addView(row)
     }
 
     private fun openMainApp() {
@@ -112,7 +130,7 @@ class OverlayService : Service() {
                 setTextColor(0xFFFFD166.toInt())
                 gravity = Gravity.CENTER
             })
-            addMenuOption(this, "Fotoğraftan Tahta Yükle") { openMainApp() }
+            addMenuOption(this, "Ana Panele Geçiş") { openMainApp() }
             addMenuOption(this, "Stockfish Analizi") { openMainApp() }
             addMenuOption(this, "Paneli Kapat") { closePanel() }
             addMenuOption(this, "Yüzen Düğmeyi Kapat") { stopSelf() }
