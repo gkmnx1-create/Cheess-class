@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -23,6 +24,7 @@ class ScreenCaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
     private var frameCount = 0
+    private var lastBoardSummary = "Tahta henüz algılanmadı"
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -60,15 +62,34 @@ class ScreenCaptureService : Service() {
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage()
             if (image != null) {
-                image.close()
                 frameCount++
-                if (frameCount == 1 || frameCount % 30 == 0) {
+                if (frameCount == 1 || frameCount % 15 == 0) {
+                    try {
+                        val plane = image.planes[0]
+                        val buffer = plane.buffer
+                        val pixels = IntArray(image.width * image.height)
+                        for (y in 0 until image.height) {
+                            for (x in 0 until image.width) {
+                                val i = y * plane.rowStride + x * plane.pixelStride
+                                val red = buffer.get(i).toInt() and 0xFF
+                                val green = buffer.get(i + 1).toInt() and 0xFF
+                                val blue = buffer.get(i + 2).toInt() and 0xFF
+                                pixels[y * image.width + x] = android.graphics.Color.rgb(red, green, blue)
+                            }
+                        }
+                        val bitmap = Bitmap.createBitmap(pixels, image.width, image.height, Bitmap.Config.ARGB_8888)
+                        lastBoardSummary = BoardVision.inspect(bitmap)
+                        bitmap.recycle()
+                    } catch (_: Exception) {
+                        lastBoardSummary = "Tahta görüntüsü okunamadı"
+                    }
                     val managerNotification = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                     managerNotification.notify(
                         NOTIFICATION_ID,
-                        buildNotification("Ekran alınıyor • $frameCount kare yakalandı")
+                        buildNotification("$lastBoardSummary • $frameCount kare")
                     )
                 }
+                image.close()
             }
         }, mainHandler)
 
