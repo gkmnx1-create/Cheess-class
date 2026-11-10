@@ -1,46 +1,39 @@
 # CHESS CLASS (GX)
 
-Android için Türkçe satranç yardımcısı.
+Android için Türkçe satranç konum algılama ve hamle analiz yardımcısı.
 
-## Mevcut özellikler
+## Uygulama akışı
 
-- Android ekran yakalama (MediaProjection)
-- Ekran üzerinde yüzen GX kontrolü ve hamle önerisi
-- Satranç tahtasını bulma ve 8×8 kareleri örnekleme
-- Tahta desenini hem parlaklık hem renk tonu farkıyla arama; aynı parlaklıktaki ama farklı renkteki kare temalarını da yakalamaya çalışma
-- Başlangıç diziliminden taş görünümlerini kalibre etme
-- Beyaz/siyah piyon, at, fil, kale, vezir ve şah sınıfları
-- Kalibrasyon sırasında aynı taş türünün birden fazla örneğinden görsel prototip üretme
-- FEN oluşturma ve Stockfish ile hamle analizi
-- Öneriyi Türkçe taş adıyla gösterme (ör. “At e4”, “Fil c4”)
+1. Kullanıcı G panelinden ekran yakalamayı başlatır.
+2. Android MediaProjection ile ekran görüntüsü alınır.
+3. Tahta otomatik bulunur ve 64 kare ONNX modeliyle sınıflandırılır.
+4. Konum doğrulandıktan sonra FEN oluşturulur.
+5. Stockfish 19 Android ARM64 motoru en iyi hamleyi hesaplar.
+6. G panelinin yanındaki bilgi alanında öneri Türkçe taş adı ve hedef kareyle gösterilir (ör. “At e4”, “Fil c4”).
 
-## Taş görünümü kalibrasyonu
+## Görüntü tanıma
 
-Chess Clash'te taş setlerinin görselleri değişebildiği için sınıflandırıcı sabit tek bir Chess Clash görseline bağlı kalmaz. İlk kalibrasyon sırasında tahtadaki başlangıç dizilimini örnekler; her taş türü için aynı renkteki örneklerden görsel prototip çıkarır. Bu, farklı set görünümlerine uyum sağlamayı amaçlar.
+- Tahta algılama: `vision/BoardDetector.java`
+- Kare örnekleme ve eski kalibrasyon yedeği: `vision/PieceClassifier.java`
+- Ana tarama ve hamle sırası: `BoardVision.kt`
+- ONNX sınıflandırıcı: `vision/LiteRtSquareClassifier.kt`
+- Model dosyası: CI derlemesinde Fenshot deposundan `chess-tiles-v2.onnx` olarak indirilir.
+- Model girişi: float32 `[64, 1024]`, 32×32 gri tonlu kareler.
+- Model çıkışı: `[64, 13]`, etiket sırası `1KQRBNPkqrbnp`.
+- Güven eşiği: 0.70.
 
-**İlk kullanımda:** Chess Clash'i standart başlangıç konumunda açın, ekran yakalamayı başlatın ve kalibrasyonun tamamlanmasını bekleyin. Taş seti değişirse yeniden kalibrasyon yapılmalıdır.
+İlk görüntüde hamle sırası statik ekran görüntüsünden kesin belirlenemediği için ilk öneri geçici olarak işaretlenir. Gerçek hamle algılandığında sıra takibi başlar. Tahta bulucu düz, kare biçimli ve perspektif bozulması olmayan tahtaları hedefler; perspektif düzeltme henüz yoktur.
 
-Tahta bulucu artık yalnızca gri ton/parlaklık farkına bağlı değildir; karelerin renk tonu farkını da değerlendirir. Böylece farklı renk paletli tahta temalarına daha dayanıklı olması hedeflenir. Ancak desenli dokular, animasyonlar, parıltılar, tahta kenarlıkları, yakınlaştırma ve ekran ölçeklemesi hâlâ algılamayı etkileyebilir. Tüm Chess Clash temalarında doğruluk garantisi yoktur; gerçek ekran görüntüleriyle test edilip eşikler iyileştirilmelidir.
+## Performans
+
+- Ekran kareleri ve tahta/ONNX analizi ana iş parçacığından ayrı yürütülür.
+- Tahta aramasının yoğun puanlama yolunda geçici dizi tahsisleri azaltılmıştır.
+- Ekran yakalama 720 piksel uzun kenarla sınırlandırılır ve yaklaşık saniyede bir analiz yapılır.
 
 ## Derleme
 
-Projeyi Android Studio ile açın ve Gradle senkronizasyonunu tamamlayın. Uygulama henüz bu değişiklik sonrasında cihaz üzerinde derlenip test edilmiş bir APK olarak doğrulanmamıştır.
+GitHub Actions, Java 17 ile `gradle assembleDebug` çalıştırır; Stockfish ARM64 motorunu ve ONNX modelini derleme sırasında indirir. APK, başarılı Actions çalışmasının `chess-class-debug-apk` artifact'inde bulunur.
 
-## Geliştirme notları
+## Önemli sınırlar
 
-- Görsel sınıflandırma kodu: `app/src/main/java/com/chessclass/app/vision/PieceClassifier.java`
-- Tahta tarama akışı: `app/src/main/java/com/chessclass/app/BoardVision.kt`
-- Ekran yakalama: `app/src/main/java/com/chessclass/app/ScreenCaptureService.kt`
-- Yüzen panel ve öneri: `app/src/main/java/com/chessclass/app/OverlayService.kt`
-
-
-## Yapay zekâ ile 64 kare tanıma (hazırlık aşaması)
-
-Android tarafında LiteRT/TensorFlow Lite çalışma zamanı ve `LiteRtSquareClassifier` eklendi. Modelin beklenen sözleşmesi:
-
-- Dosya: `app/src/main/assets/gx_chess_64.tflite`
-- Girdi: `[1, 64, 64, 3]`, RGB float32, 0–1 aralığı
-- Çıktı: `[1, 13]`; sınıf sırası: boş, beyaz P/N/B/R/Q/K, siyah p/n/b/r/q/k
-- Güven eşiği: 0.72; eşik altındaki kareler tahmin edilmez.
-
-**Model dosyası henüz ekli değildir.** Bu nedenle uygulama şu an eğitilmiş yapay zekâ ile taş tanıdığı iddiasında bulunmaz; mevcut algılama yolu korunur. Model, gerçek Chess Clash ekran görüntülerinden etiketli 64-kare örnekleriyle eğitilip doğrulandıktan sonra assets klasörüne eklenmelidir. Veri kümesinde farklı tahta temaları, taş setleri, ekran ölçekleri ve oyun içi vurgular bulunmalıdır.
+Kodun derlenmesi, gerçek oyun ekranlarında taşların hatasız tanınacağını garanti etmez. Tahta temaları, taş setleri, animasyonlar, vurgular ve ekran ölçekleri gerçek cihazda ayrıca test edilmelidir. FEN doğrulaması temel yapısal kontroller uygular; tam bir yasal satranç konumu doğrulayıcısı değildir.
