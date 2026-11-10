@@ -93,6 +93,7 @@ object BoardVision {
     private fun acceptGrid(grid: Array<CharArray>, ai: Boolean): ScanResult {
         val previous = lastGrid
         var nextSideToMove = sideToMove
+        var observedMove = false
         if (previous != null) {
             val move = MoveAnalyzer.analyze(previous, grid)
             if (move.kind == MoveAnalyzer.Kind.NONE) {
@@ -102,6 +103,7 @@ object BoardVision {
             } else if (move.kind == MoveAnalyzer.Kind.UNKNOWN || move.mover == null) {
                 return ScanResult("Tahta bulundu • Hamle doğrulanıyor…", null, countPieces(grid), ai)
             } else {
+                observedMove = true
                 // The moving piece's colour determines the next side; do not assume
                 // that the player at the bottom is always White.
                 nextSideToMove = if (move.mover == Side.WHITE) Side.BLACK else Side.WHITE
@@ -125,7 +127,7 @@ object BoardVision {
             else (fallbackClassifier.bootstrapSide() ?: Side.WHITE)
         val turn = nextSideToMove
             ?: return ScanResult("Hamle sırası henüz bilinmiyor", null, countPieces(grid), ai)
-        updateFenMetadata(previous, grid, boardOrientation)
+        if (observedMove) updateFenMetadata(previous, grid, boardOrientation)
         val fen = FenBuilder.build(grid, boardOrientation, turn, castlingRights ?: "-", enPassantTarget)
             ?: return ScanResult("Konum FEN'e çevrilemedi", null, countPieces(grid), ai)
 
