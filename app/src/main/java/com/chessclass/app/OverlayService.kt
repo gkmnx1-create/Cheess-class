@@ -27,6 +27,11 @@ class OverlayService : Service() {
     private var bubble: TextView? = null
     private var panel: LinearLayout? = null
     private var statusView: TextView? = null
+    private var analysisIndicator: TextView? = null
+    private var captureIndicator: TextView? = null
+    private var closeIndicator: TextView? = null
+    private var captureActive = false
+    private var analysisSucceeded = false
     private var latestFen: String? = null
     private var latestSummary = "Tahta henüz algılanmadı"
     private var latestAnalysis = ""
@@ -40,9 +45,16 @@ class OverlayService : Service() {
 
     private val boardReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ScreenCaptureService.ACTION_CAPTURE_STATUS) {
+                captureActive = intent.getBooleanExtra(ScreenCaptureService.EXTRA_CAPTURE_ACTIVE, false)
+                refreshIndicators()
+                return
+            }
             if (intent?.action != ScreenCaptureService.ACTION_BOARD_UPDATED) return
             latestFen = intent.getStringExtra(ScreenCaptureService.EXTRA_FEN)
             latestSummary = intent.getStringExtra(ScreenCaptureService.EXTRA_SUMMARY) ?: "Tahta okundu"
+            analysisSucceeded = false
+            refreshIndicators()
             statusView?.text = displayStatus()
             val fen = latestFen
             if (!fen.isNullOrBlank()) {
@@ -57,7 +69,10 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val filter = IntentFilter(ScreenCaptureService.ACTION_BOARD_UPDATED)
+        val filter = IntentFilter().apply {
+            addAction(ScreenCaptureService.ACTION_BOARD_UPDATED)
+            addAction(ScreenCaptureService.ACTION_CAPTURE_STATUS)
+        }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(boardReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(boardReceiver, filter)
         receiverRegistered = true
@@ -181,7 +196,9 @@ class OverlayService : Service() {
                     startAnalysis(currentFen, currentKey!!)
                 } else {
                     latestAnalysis = resultText
+                    analysisSucceeded = bestMove != null && bestMove != "0000" && bestMove != "(none)" && !raw.startsWith("Hata:")
                 }
+                refreshIndicators()
                 statusView?.text = displayStatus()
             }
         }.start()
@@ -194,6 +211,9 @@ class OverlayService : Service() {
         latestFen = null
         latestAnalysis = ""
         lastAnalyzedPosition = ""
+        captureActive = false
+        analysisSucceeded = false
+        refreshIndicators()
         status.text = "✓ Ekran yakalama durduruldu"
     }
 
@@ -218,9 +238,21 @@ class OverlayService : Service() {
             isFocusable = true
         }
         val heading = label(title, 13f, 0xFFFFD166.toInt(), true)
+        val indicator = label("✕", 15f, 0xFFFF6B6B.toInt(), true)
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(heading, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(indicator)
+        }
+        when {
+            title.contains("analiz", ignoreCase = true) -> analysisIndicator = indicator
+            title.contains("yakalamayı", ignoreCase = true) -> captureIndicator = indicator
+            else -> closeIndicator = indicator
+        }
         val detail = label(subtitle, 10f, 0xFFCFD8E6.toInt())
         detail.setPadding(0, dp(2), 0, 0)
-        card.addView(heading)
+        card.addView(titleRow)
         card.addView(detail)
         card.setOnClickListener { action(detail) }
         box.addView(card, LinearLayout.LayoutParams(
@@ -228,10 +260,19 @@ class OverlayService : Service() {
         ).apply { topMargin = dp(6) })
     }
 
+    private fun refreshIndicators() {
+        analysisIndicator?.text = if (analysisSucceeded) "✓" else "✕"
+        captureIndicator?.text = if (captureActive) "✓" else "✕"
+        closeIndicator?.text = "✓"
+    }
+
     private fun closePanel() {
         panel?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         panel = null
         statusView = null
+        analysisIndicator = null
+        captureIndicator = null
+        closeIndicator = null
     }
 
     private fun togglePanel() {
@@ -306,6 +347,7 @@ class OverlayService : Service() {
             } else false
         }
 
+        refreshIndicators()
         val params = WindowManager.LayoutParams(
             dp(245), WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
