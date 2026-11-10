@@ -34,8 +34,14 @@ class MainActivity : ComponentActivity() {
                 putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
                 putExtra(ScreenCaptureService.EXTRA_DATA, result.data)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
-            else startService(serviceIntent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
+                else startService(serviceIntent)
+            } catch (error: Exception) {
+                sendCaptureMessage("Ekran yakalama başlatılamadı: " + error.javaClass.simpleName)
+            }
+        } else {
+            sendCaptureMessage("Ekran paylaşım izni verilmedi. Yakalama başlatılmadı.")
         }
         finish()
     }
@@ -46,7 +52,8 @@ class MainActivity : ComponentActivity() {
         if (captureOnlyLaunch) {
             // Keep the game visible behind Android's mandatory screen-share consent dialog.
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            window.decorView.alpha = 0f
+            // Keep the requesting activity visible while Android launches
+            // the system MediaProjection consent dialog.
             requestScreenCapture()
             return
         }
@@ -113,6 +120,12 @@ class MainActivity : ComponentActivity() {
         startupStarted = true
         startService(Intent(this, OverlayService::class.java))
         finish()
+    }
+
+    private fun sendCaptureMessage(message: String) {
+        sendBroadcast(Intent(ScreenCaptureService.ACTION_BOARD_UPDATED).setPackage(packageName)
+            .putExtra(ScreenCaptureService.EXTRA_FEN, null as String?)
+            .putExtra(ScreenCaptureService.EXTRA_SUMMARY, message))
     }
 
     private fun requestScreenCapture() {
