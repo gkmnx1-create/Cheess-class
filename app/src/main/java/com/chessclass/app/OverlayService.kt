@@ -231,9 +231,20 @@ class OverlayService : Service() {
         footer.setPadding(0, dp(12), 0, 0)
         box.addView(footer)
 
+        box.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                closePanel()
+                true
+            } else false
+        }
+
         val params = WindowManager.LayoutParams(
             dp(270), WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType, 0, PixelFormat.TRANSLUCENT
+            overlayType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(12) }
         panel = box
         windowManager.addView(box, params)
