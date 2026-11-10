@@ -100,7 +100,13 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_SECURE,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(14) }
+        ).apply {
+            gravity = Gravity.TOP or Gravity.LEFT
+            val screenWidth = resources.displayMetrics.widthPixels
+            val screenHeight = resources.displayMetrics.heightPixels
+            x = (screenWidth - dp(56 + 230 + 10 + 14)).coerceAtLeast(dp(8))
+            y = ((screenHeight - dp(56)) / 2).coerceAtLeast(dp(8))
+        }
 
         bubble = TextView(this).apply {
             text = "G"
@@ -126,8 +132,10 @@ class OverlayService : Service() {
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        bubbleParams.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
-                        bubbleParams.y = startY + (event.rawY - downY).toInt()
+                        val maxBubbleX = (resources.displayMetrics.widthPixels - bubbleParams.width - dp(230 + 10 + 8)).coerceAtLeast(0)
+                        val maxBubbleY = (resources.displayMetrics.heightPixels - bubbleParams.height).coerceAtLeast(0)
+                        bubbleParams.x = (startX + (event.rawX - downX)).toInt().coerceIn(0, maxBubbleX)
+                        bubbleParams.y = (startY + (event.rawY - downY)).toInt().coerceIn(0, maxBubbleY)
                         // Move only the touchable G bubble during the drag.
                         // Repositioning the second overlay on every touch event causes jank.
                         windowManager.updateViewLayout(view, bubbleParams)
@@ -139,7 +147,7 @@ class OverlayService : Service() {
                         if (moved) {
                             // Snap the information window to the bubble once the drag ends.
                             suggestionParams?.let { params ->
-                                params.x = bubbleParams.x + bubbleParams.width + dp(2)
+                                params.x = bubbleParams.x + bubbleParams.width + dp(10)
                                 params.y = bubbleParams.y
                                 suggestionView?.let { suggestion ->
                                     try { windowManager.updateViewLayout(suggestion, params) } catch (_: Exception) {}
@@ -392,8 +400,8 @@ class OverlayService : Service() {
                     WindowManager.LayoutParams.FLAG_SECURE,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
-                x = bubbleParams.x + bubbleParams.width + dp(2)
+                gravity = Gravity.TOP or Gravity.LEFT
+                x = bubbleParams.x + bubbleParams.width + dp(10)
                 y = bubbleParams.y
             }
             windowManager.addView(it, suggestionParams)
@@ -406,7 +414,7 @@ class OverlayService : Service() {
         )
         view.visibility = View.VISIBLE
         suggestionParams?.let { params ->
-            params.x = bubbleParams.x + bubbleParams.width + dp(2)
+            params.x = bubbleParams.x + bubbleParams.width + dp(10)
             params.y = bubbleParams.y
             try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
         }
