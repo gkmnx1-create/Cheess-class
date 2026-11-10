@@ -1,12 +1,33 @@
-# CHESS CLASS
+# CHESS CLASS (GX)
 
-Türkçe yapay zekâ satranç uygulaması.
+Android için Türkçe satranç yardımcısı.
 
-## Hedefler
-- Tamamen Türkçe arayüz
-- Çevrimdışı satranç oyunu
-- Stockfish satranç motoru entegrasyonu
-- Hamle analizi ve oyun değerlendirmesi
+## Mevcut özellikler
 
-## Geliştirme durumu
-Proje başlangıç aşamasındadır. Henüz indirilebilir bir APK değildir.
+- Android ekran yakalama (MediaProjection)
+- Ekran üzerinde yüzen GX kontrolü ve hamle önerisi
+- Satranç tahtasını bulma ve 8×8 kareleri örnekleme
+- Başlangıç diziliminden taş görünümlerini kalibre etme
+- Beyaz/siyah piyon, at, fil, kale, vezir ve şah sınıfları
+- Kalibrasyon sırasında aynı taş türünün birden fazla örneğinden görsel prototip üretme
+- FEN oluşturma ve Stockfish ile hamle analizi
+- Öneriyi Türkçe taş adıyla gösterme (ör. “At e4”, “Fil c4”)
+
+## Taş görünümü kalibrasyonu
+
+Chess Clash'te taş setlerinin görselleri değişebildiği için sınıflandırıcı sabit tek bir Chess Clash görseline bağlı kalmaz. İlk kalibrasyon sırasında tahtadaki başlangıç dizilimini örnekler; her taş türü için aynı renkteki örneklerden görsel prototip çıkarır. Bu, farklı set görünümlerine uyum sağlamayı amaçlar.
+
+**İlk kullanımda:** Chess Clash'i standart başlangıç konumunda açın, ekran yakalamayı başlatın ve kalibrasyonun tamamlanmasını bekleyin. Taş seti değişirse yeniden kalibrasyon yapılmalıdır.
+
+Bu yöntem tüm mevcut/gelecekteki Chess Clash kostümlerinde doğruluk garantisi vermez. Animasyon, parıltı, tahta teması, yakınlaştırma ve ekran ölçeklemesi tanımayı etkileyebilir. Farklı set ekran görüntüleriyle test edilip eşikler ve örnekler iyileştirilmelidir.
+
+## Derleme
+
+Projeyi Android Studio ile açın ve Gradle senkronizasyonunu tamamlayın. Uygulama henüz bu değişiklik sonrasında cihaz üzerinde derlenip test edilmiş bir APK olarak doğrulanmamıştır.
+
+## Geliştirme notları
+
+- Görsel sınıflandırma kodu: `app/src/main/java/com/chessclass/app/vision/PieceClassifier.java`
+- Tahta tarama akışı: `app/src/main/java/com/chessclass/app/BoardVision.kt`
+- Ekran yakalama: `app/src/main/java/com/chessclass/app/ScreenCaptureService.kt`
+- Yüzen panel ve öneri: `app/src/main/java/com/chessclass/app/OverlayService.kt`
