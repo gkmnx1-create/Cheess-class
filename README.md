@@ -3,10 +3,10 @@
 Türkçe yapay zekâ satranç uygulaması.
 
 ## Hedefler
-- Türkçe arayüz
+- Tamamen Türkçe arayüz
 - Çevrimdışı satranç oyunu
-- Stockfish motoru entegrasyonu
-- Hamle analizi
+- Stockfish satranç motoru entegrasyonu
+- Hamle analizi ve oyun değerlendirmesi
 
 ## Geliştirme durumu
-Proje başlangıç aşamasındadır. Henüz oynanabilir tam sürüm veya APK değildir.
+Proje başlangıç aşamasındadır. Henüz indirilebilir bir APK değildir.
