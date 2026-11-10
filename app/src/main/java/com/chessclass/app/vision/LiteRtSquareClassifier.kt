@@ -55,7 +55,6 @@ class LiteRtSquareClassifier(context: Context) : AutoCloseable {
         for (rank in 0 until 8) for (file in 0 until 8) {
             val tile = rank * 8 + file
             val sourceY = (7 - rank) * TILE_SIZE
-            val inset = 1
             for (y in 0 until TILE_SIZE) for (x in 0 until TILE_SIZE) {
                 val sx = file * TILE_SIZE + x
                 val sy = sourceY + y
