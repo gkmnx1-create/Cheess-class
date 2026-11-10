@@ -2,6 +2,9 @@ package com.chessclass.app
 
 import android.app.Service
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -23,13 +26,30 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubble: TextView? = null
     private var panel: LinearLayout? = null
+    private var statusView: TextView? = null
+    private var latestFen: String? = null
+    private var latestSummary = "Tahta henüz algılanmadı"
+    private var receiverRegistered = false
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private val boardReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ScreenCaptureService.ACTION_BOARD_UPDATED) return
+            latestFen = intent.getStringExtra(ScreenCaptureService.EXTRA_FEN)
+            latestSummary = intent.getStringExtra(ScreenCaptureService.EXTRA_SUMMARY) ?: "Tahta okundu"
+            statusView?.text = latestSummary
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val filter = IntentFilter(ScreenCaptureService.ACTION_BOARD_UPDATED)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(boardReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else @Suppress("DEPRECATION") registerReceiver(boardReceiver, filter)
+        receiverRegistered = true
         overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
@@ -100,16 +120,22 @@ class OverlayService : Service() {
         }
 
     private fun runStockfish(status: TextView) {
-        status.text = "Stockfish çalışıyor…"
+        val fen = latestFen
+        if (fen.isNullOrBlank()) {
+            status.text = "Henüz doğrulanmış tahta yok. Başlangıç diziliminde kalibrasyon yap."
+            return
+        }
+        status.text = "Stockfish konumu inceliyor…"
         Thread {
-            val result = runCatching { StockfishEngine(this).analyzeStartPosition() }
+            val result = runCatching { StockfishEngine(this).analyzeFen(fen, 14) }
                 .getOrElse { "Hata: " + (it.message ?: "Motor başlatılamadı") }
-            mainHandler.post { status.text = result }
+            mainHandler.post { status.text = latestSummary + "\n" + result }
         }.start()
     }
 
     private fun stopScreenCapture(status: TextView) {
         stopService(Intent(this, ScreenCaptureService::class.java))
+        latestFen = null
         status.text = "Ekran yakalama durduruldu"
     }
 
@@ -140,6 +166,7 @@ class OverlayService : Service() {
     private fun closePanel() {
         panel?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         panel = null
+        statusView = null
     }
 
     private fun togglePanel() {
@@ -171,16 +198,21 @@ class OverlayService : Service() {
         header.addView(titles)
         box.addView(header)
 
-        val status = label("Bir işlem seçin", 12f, 0xFFFFD166.toInt())
+        val status = label(latestSummary, 12f, 0xFFFFD166.toInt())
         status.setPadding(dp(2), dp(10), dp(2), dp(2))
+        statusView = status
         box.addView(status)
 
-        addAction(box, "♟  Stockfish testi", "Motoru başlangıç konumunda dene") { detail ->
+        addAction(box, "♟  Bu konumu analiz et", "Yalnızca inceleme veya tekrar konumlarında") { detail ->
             runStockfish(detail)
         }
         addAction(box, "Ⅱ  Ekran yakalamayı durdur", "Ekran görüntüsü alımını kapat") { detail ->
             stopScreenCapture(detail)
         }
+
+        val hint = label("İlk kullanım: tahtayı başlangıç diziliminde gösterip kalibrasyonun tamamlanmasını bekle.", 10f, 0xFFB8C4D6.toInt())
+        hint.setPadding(0, dp(10), 0, 0)
+        box.addView(hint)
 
         val footer = label("Kapatmak için G düğmesine dokun", 10f, 0xFF8998AE.toInt())
         footer.gravity = Gravity.CENTER
@@ -199,6 +231,10 @@ class OverlayService : Service() {
         closePanel()
         bubble?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         bubble = null
+        if (receiverRegistered) {
+            try { unregisterReceiver(boardReceiver) } catch (_: Exception) {}
+            receiverRegistered = false
+        }
         super.onDestroy()
     }
 
