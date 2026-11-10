@@ -20,7 +20,6 @@ public class PieceClassifier {
         'R','N','B','Q','K','B','N','R'
     };
 
-    private SquareSampler.Sample[] templates;
     // Per-piece prototypes learned from the current chess-set artwork at bootstrap.
     // Index 0..5 = white P/N/B/R/Q/K, 6..11 = black p/n/b/r/q/k.
     // The second dimension separates light and dark board squares.
@@ -47,21 +46,17 @@ public class PieceClassifier {
         if (samples == null) return false;
 
         float maxEmptyEdge = 0;
-        int emptyCount = 0;
         for (int r = 2; r <= 5; r++) for (int f = 0; f < 8; f++) {
             float e = samples[r * 8 + f].edgeEnergy;
             if (e > maxEmptyEdge) maxEmptyEdge = e;
-            emptyCount++;
         }
 
         float minOccupiedEdge = Float.MAX_VALUE;
-        int occCount = 0;
         for (int r = 0; r < 8; r++) {
             if (r >= 2 && r <= 5) continue;
             for (int f = 0; f < 8; f++) {
                 float e = samples[r * 8 + f].edgeEnergy;
                 if (e < minOccupiedEdge) minOccupiedEdge = e;
-                occCount++;
             }
         }
 
@@ -93,7 +88,6 @@ public class PieceClassifier {
         Side side = botAvg > topAvg ? Side.WHITE : Side.BLACK;
 
         char[] map = side == Side.WHITE ? START_WHITE_POV : flipLabels(START_WHITE_POV);
-        templates = samples;
         labels = map;
         bootstrapSide = side;
         buildTypePrototypes(samples, map);
@@ -276,7 +270,6 @@ public class PieceClassifier {
     }
 
     public synchronized void reset() {
-        templates = null;
         labels = null;
         typePrototypes = new float[12][2][SquareSampler.N * SquareSampler.N];
         typePrototypeCounts = new int[12][2];
