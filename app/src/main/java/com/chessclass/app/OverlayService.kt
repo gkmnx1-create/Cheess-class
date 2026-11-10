@@ -18,23 +18,27 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubble: Button? = null
     private var panel: LinearLayout? = null
+    private lateinit var bubbleParams: WindowManager.LayoutParams
+    private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
-        val params = WindowManager.LayoutParams(
+
+        bubbleParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
+            overlayType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
+
         bubble = Button(this).apply {
             text = "♟ CHESS"
-            setOnClickListener { togglePanel(params, type) }
+            setOnClickListener { togglePanel() }
             var downX = 0f
             var downY = 0f
             var startX = 0
@@ -45,14 +49,14 @@ class OverlayService : Service() {
                     MotionEvent.ACTION_DOWN -> {
                         downX = event.rawX
                         downY = event.rawY
-                        startX = params.x
-                        startY = params.y
+                        startX = bubbleParams.x
+                        startY = bubbleParams.y
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        params.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
-                        params.y = startY + (event.rawY - downY).toInt()
-                        windowManager.updateViewLayout(view, params)
+                        bubbleParams.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
+                        bubbleParams.y = startY + (event.rawY - downY).toInt()
+                        windowManager.updateViewLayout(view, bubbleParams)
                         true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -65,13 +69,19 @@ class OverlayService : Service() {
                 }
             }
         }
-        windowManager.addView(bubble, params)
+        windowManager.addView(bubble, bubbleParams)
     }
 
-    private fun togglePanel(params: WindowManager.LayoutParams, type: Int) {
+    private fun closePanel() {
+        panel?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+        }
+        panel = null
+    }
+
+    private fun togglePanel() {
         if (panel != null) {
-            windowManager.removeView(panel)
-            panel = null
+            closePanel()
             return
         }
         val box = LinearLayout(this).apply {
@@ -84,23 +94,24 @@ class OverlayService : Service() {
                 setTextColor(0xFFFFD166.toInt())
             })
             addView(TextView(this@OverlayService).apply {
-                text = "Antrenman ve oyun sonrası analiz paneli.\nEkran görüntüsü tanıma ve Stockfish sonraki aşamada."
+                text = "Antrenman ve oyun sonrasi analiz paneli.\nTahta tanima ve Stockfish sonraki asamada."
                 textSize = 14f
                 setTextColor(0xFFFFFFFF.toInt())
             })
             addView(Button(this@OverlayService).apply {
-                text = "Kapat"
-                setOnClickListener {
-                    panel?.let { windowManager.removeView(it) }
-                    panel = null
-                }
+                text = "Paneli kapat"
+                setOnClickListener { closePanel() }
+            })
+            addView(Button(this@OverlayService).apply {
+                text = "Yüzen düğmeyi de kapat"
+                setOnClickListener { stopSelf() }
             })
         }
         val panelParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            overlayType,
+            0,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
         panel = box
@@ -108,10 +119,11 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        bubble?.let { windowManager.removeView(it) }
-        panel?.let { windowManager.removeView(it) }
+        closePanel()
+        bubble?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+        }
         bubble = null
-        panel = null
         super.onDestroy()
     }
 
