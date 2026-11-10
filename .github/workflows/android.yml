@@ -21,6 +21,29 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Stockfish 19 Android ARM64 motorunu hazırla
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L --fail --retry 3 \
+            https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz \
+            -o /tmp/stockfish.tar.gz
+          tar -tzf /tmp/stockfish.tar.gz > /tmp/stockfish-files.txt
+          ENGINE_PATH=$(grep -E '(^|/)stockfish(-android-arm64)?$' /tmp/stockfish-files.txt | head -n 1)
+          if [ -z "$ENGINE_PATH" ]; then
+            echo "Stockfish executable was not found in the official archive."
+            cat /tmp/stockfish-files.txt
+            exit 1
+          fi
+          tar -xzf /tmp/stockfish.tar.gz -C /tmp "$ENGINE_PATH"
+          cp "/tmp/$ENGINE_PATH" app/src/main/assets/stockfish
+          chmod 755 app/src/main/assets/stockfish
+
+      - name: Java 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Gradle önbelleğini ayarla
         uses: gradle/actions/setup-gradle@v4
 
