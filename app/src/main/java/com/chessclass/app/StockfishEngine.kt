@@ -44,34 +44,40 @@ class StockfishEngine(private val context: Context) {
                 val line = reader.readLine() ?: break
                 if (line == "uciok") { ready = true; break }
             }
-            if (!ready) return@try "Hata: Stockfish UCI başlatılamadı"
 
-            writer.write("setoption name Threads value 1\n")
-            writer.write("setoption name Hash value 64\n")
-            writer.write("isready\n")
-            writer.flush()
-            ready = false
-            while (true) {
-                val line = reader.readLine() ?: break
-                if (line == "readyok") { ready = true; break }
-            }
-            if (!ready) return@try "Hata: Stockfish hazır duruma gelemedi"
-
-            writer.write("position fen $fen\n")
-            writer.write("go movetime 1400\n")
-            writer.flush()
-            var bestMove: String? = null
-            while (true) {
-                val line = reader.readLine() ?: break
-                if (line.startsWith("bestmove")) {
-                    bestMove = line
-                    break
+            if (!ready) {
+                "Hata: Stockfish UCI başlatılamadı"
+            } else {
+                writer.write("setoption name Threads value 1\n")
+                writer.write("setoption name Hash value 64\n")
+                writer.write("isready\n")
+                writer.flush()
+                ready = false
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line == "readyok") { ready = true; break }
                 }
-            }
-            when {
-                timedOut.get() -> "Hata: Stockfish analiz zaman aşımına uğradı"
-                bestMove != null -> bestMove
-                else -> "Hata: Stockfish hamle üretemedi"
+
+                if (!ready) {
+                    "Hata: Stockfish hazır duruma gelemedi"
+                } else {
+                    writer.write("position fen $fen\n")
+                    writer.write("go movetime 1400\n")
+                    writer.flush()
+                    var bestMove: String? = null
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (line.startsWith("bestmove")) {
+                            bestMove = line
+                            break
+                        }
+                    }
+                    when {
+                        timedOut.get() -> "Hata: Stockfish analiz zaman aşımına uğradı"
+                        bestMove != null -> bestMove
+                        else -> "Hata: Stockfish hamle üretemedi"
+                    }
+                }
             }
         } catch (error: Exception) {
             "Hata: ${error.message ?: "Stockfish çalıştırılamadı"}"
