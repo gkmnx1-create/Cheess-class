@@ -195,7 +195,19 @@ class OverlayService : Service() {
             addView(label("Hızlı yardımcı panel", 11f, 0xFFB8C4D6.toInt()))
         }
         header.addView(brand)
-        header.addView(titles)
+        header.addView(titles, LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+        ))
+
+        val closeButton = label("✕", 22f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            contentDescription = "Paneli kapat"
+            background = rounded(0xFF34445F.toInt(), 0xFFFFD166.toInt(), 12)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { closePanel() }
+        }
+        header.addView(closeButton, LinearLayout.LayoutParams(dp(40), dp(40)))
         box.addView(header)
 
         val status = label(latestSummary, 12f, 0xFFFFD166.toInt())
