@@ -18,6 +18,7 @@ object BoardVision {
     // Unknown until a real move is observed. A static mid-game screenshot does not
     // contain enough information to determine whose turn it is.
     private var sideToMove: Side? = null
+    private var aiBottomSide: Side? = null
     private var lastFen: String? = null
 
     @Synchronized
@@ -29,6 +30,7 @@ object BoardVision {
         fallbackClassifier.reset()
         lastGrid = null
         sideToMove = null
+        aiBottomSide = null
         lastFen = null
     }
 
@@ -50,6 +52,7 @@ object BoardVision {
                 val validation = FenBuilder.validate(grid)
                 if (!validation.ok) return ScanResult("AI konumu doğrulayamadı: ${validation.reason}", null, countPieces(grid), true)
                 lastGrid = copyGrid(grid)
+                aiBottomSide = detectBottomSide(grid)
                 return ScanResult("Tahta tanındı • İlk hamle bekleniyor", null, countPieces(grid), true)
             }
             return acceptGrid(grid, true)
@@ -111,7 +114,7 @@ object BoardVision {
 
         // BoardDetector returns screen top-left to bottom-right. The fallback
         // classifier records whether the board is rotated relative to standard FEN.
-        val boardOrientation = if (ai) Side.WHITE
+        val boardOrientation = if (ai) (aiBottomSide ?: detectBottomSide(grid))
             else (fallbackClassifier.bootstrapSide() ?: Side.WHITE)
         val turn = nextSideToMove
             ?: return ScanResult("Hamle sırası henüz bilinmiyor", null, countPieces(grid), ai)
@@ -126,6 +129,20 @@ object BoardVision {
                 " taş • Sıra: " + if (turn == Side.WHITE) "Beyaz" else "Siyah",
             fen, countPieces(grid), ai
         )
+    }
+
+
+    // Screen rows 4..7 are always the user's half. The majority piece colour
+    // there determines whether the on-screen board is white-bottom or black-bottom.
+    private fun detectBottomSide(grid: Array<CharArray>): Side {
+        var white = 0
+        var black = 0
+        for (r in 4..7) for (f in 0..7) {
+            val piece = grid[r][f]
+            if (piece == '.' || piece == 0.toChar()) continue
+            if (piece.isUpperCase()) white++ else black++
+        }
+        return if (black > white) Side.BLACK else Side.WHITE
     }
 
     private fun copyGrid(grid: Array<CharArray>): Array<CharArray> =
