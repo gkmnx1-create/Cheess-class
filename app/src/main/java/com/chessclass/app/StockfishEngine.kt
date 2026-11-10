@@ -4,7 +4,10 @@ import android.content.Context
 import java.io.File
 
 class StockfishEngine(private val context: Context) {
-    fun analyzeStartPosition(depth: Int = 12): String {
+    fun analyzeStartPosition(depth: Int = 12): String =
+        analyzeFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", depth)
+
+    fun analyzeFen(fen: String, depth: Int = 12): String {
         val engineFile = File(context.applicationInfo.nativeLibraryDir, "libstockfish.so")
         if (!engineFile.exists() || !engineFile.canExecute()) {
             return "Stockfish dosyası bulunamadı veya çalıştırma izni yok: ${engineFile.absolutePath}"
@@ -20,24 +23,20 @@ class StockfishEngine(private val context: Context) {
             val reader = process.inputStream.bufferedReader()
             writer.write("uci\n")
             writer.flush()
-
             var line: String?
             while (true) {
                 line = reader.readLine() ?: break
                 if (line == "uciok") break
             }
-
             writer.write("isready\n")
             writer.flush()
             while (true) {
                 line = reader.readLine() ?: break
                 if (line == "readyok") break
             }
-
-            writer.write("position startpos\n")
+            writer.write("position fen $fen\n")
             writer.write("go depth $depth\n")
             writer.flush()
-
             var bestMove = "Hamle bulunamadı."
             while (true) {
                 line = reader.readLine() ?: break
