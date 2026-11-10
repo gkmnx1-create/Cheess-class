@@ -6,10 +6,13 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.abs
 
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
@@ -31,7 +34,35 @@ class OverlayService : Service() {
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
         bubble = Button(this).apply {
             text = "♟ CHESS"
-            setOnClickListener { togglePanel(params, type) }
+            var downX = 0f
+            var downY = 0f
+            var startX = 0
+            var startY = 0
+            val touchSlop = ViewConfiguration.get(this@OverlayService).scaledTouchSlop
+            setOnTouchListener { view, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = event.rawX
+                        downY = event.rawY
+                        startX = params.x
+                        startY = params.y
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
+                        params.y = startY + (event.rawY - downY).toInt()
+                        windowManager.updateViewLayout(view, params)
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val moved = abs(event.rawX - downX) > touchSlop ||
+                            abs(event.rawY - downY) > touchSlop
+                        if (!moved) performClick()
+                        true
+                    }
+                    else -> true
+                }
+            }
         }
         windowManager.addView(bubble, params)
     }
