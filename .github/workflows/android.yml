@@ -23,7 +23,7 @@ jobs:
 
       - name: Stockfish 19 Android ARM64 motorunu hazırla
         run: |
-          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/jniLibs/arm64-v8a
           curl -L --fail --retry 3 \
             https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz \
             -o /tmp/stockfish.tar.gz
@@ -35,8 +35,8 @@ jobs:
             exit 1
           fi
           tar -xzf /tmp/stockfish.tar.gz -C /tmp "$ENGINE_PATH"
-          cp "/tmp/$ENGINE_PATH" app/src/main/assets/stockfish
-          chmod 755 app/src/main/assets/stockfish
+          cp "/tmp/$ENGINE_PATH" app/src/main/jniLibs/arm64-v8a/libstockfish.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libstockfish.so
 
       - name: Gradle önbelleğini ayarla
         uses: gradle/actions/setup-gradle@v4
