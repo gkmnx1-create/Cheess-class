@@ -140,56 +140,50 @@ public class BoardDetector {
     private static double checkerScore(long[] ii, int Wp, int x0, int y0, int cell) {
         int samp = Math.max(2, cell / 5);
         int inset = Math.max(2, cell / 6);
+        double sumLight = 0, sumDark = 0;
+        double squareLight = 0, squareDark = 0;
+        int countLight = 0, countDark = 0;
 
-        double[] light = new double[32];
-        double[] dark  = new double[32];
-        int li = 0, di = 0;
-
-        double[] corners = new double[4];
-
+        // Keep this hot path allocation-free: board search evaluates many candidates
+        // per frame, so temporary arrays here create avoidable garbage-collection pauses.
         for (int r = 0; r < 8; r++) {
             for (int f = 0; f < 8; f++) {
                 int cx = x0 + f * cell;
                 int cy = y0 + r * cell;
-
-                corners[0] = boxMean(ii, Wp, cx + inset,                cy + inset,                samp);
-                corners[1] = boxMean(ii, Wp, cx + cell - inset - samp,  cy + inset,                samp);
-                corners[2] = boxMean(ii, Wp, cx + inset,                cy + cell - inset - samp,  samp);
-                corners[3] = boxMean(ii, Wp, cx + cell - inset - samp,  cy + cell - inset - samp,  samp);
-
-                sort4(corners);
-                double median = (corners[1] + corners[2]) * 0.5;
-
-                if (((r + f) & 1) == 0) light[li++] = median;
-                else                    dark[di++]  = median;
+                double a = boxMean(ii, Wp, cx + inset, cy + inset, samp);
+                double b = boxMean(ii, Wp, cx + cell - inset - samp, cy + inset, samp);
+                double c = boxMean(ii, Wp, cx + inset, cy + cell - inset - samp, samp);
+                double d = boxMean(ii, Wp, cx + cell - inset - samp,
+                        cy + cell - inset - samp, samp);
+                double median = median4(a, b, c, d);
+                if (((r + f) & 1) == 0) {
+                    sumLight += median;
+                    squareLight += median * median;
+                    countLight++;
+                } else {
+                    sumDark += median;
+                    squareDark += median * median;
+                    countDark++;
+                }
             }
         }
 
-        double meanL = mean(light), meanD = mean(dark);
-        double sigmaL = std(light, meanL), sigmaD = std(dark, meanD);
-
+        double meanL = sumLight / countLight;
+        double meanD = sumDark / countDark;
+        double varianceL = Math.max(0, squareLight / countLight - meanL * meanL);
+        double varianceD = Math.max(0, squareDark / countDark - meanD * meanD);
         double sep = Math.abs(meanL - meanD);
-        double noiseFloor = 4.0;
-        return sep * sep / (noiseFloor + sigmaL + sigmaD);
+        return sep * sep / (4.0 + Math.sqrt(varianceL) + Math.sqrt(varianceD));
     }
 
-    private static void sort4(double[] a) {
+    private static double median4(double a, double b, double c, double d) {
         double t;
-        if (a[0] > a[1]) { t = a[0]; a[0] = a[1]; a[1] = t; }
-        if (a[2] > a[3]) { t = a[2]; a[2] = a[3]; a[3] = t; }
-        if (a[0] > a[2]) { t = a[0]; a[0] = a[2]; a[2] = t; }
-        if (a[1] > a[3]) { t = a[1]; a[1] = a[3]; a[3] = t; }
-        if (a[1] > a[2]) { t = a[1]; a[1] = a[2]; a[2] = t; }
-    }
-
-    private static double mean(double[] a) {
-        double s = 0; for (double v : a) s += v; return s / a.length;
-    }
-
-    private static double std(double[] a, double m) {
-        double s = 0;
-        for (double v : a) { double d = v - m; s += d * d; }
-        return Math.sqrt(s / a.length);
+        if (a > b) { t = a; a = b; b = t; }
+        if (c > d) { t = c; c = d; d = t; }
+        if (a > c) { t = a; a = c; c = t; }
+        if (b > d) { t = b; b = d; d = t; }
+        if (b > c) { t = b; b = c; c = t; }
+        return (b + c) * 0.5;
     }
 
     private static double boxMean(long[] ii, int Wp, int x, int y, int s) {
