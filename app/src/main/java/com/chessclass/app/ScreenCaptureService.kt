@@ -17,6 +17,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
@@ -31,6 +32,8 @@ class ScreenCaptureService : Service() {
     private var lastScanElapsedMs = 0L
     private var lastBoardSummary = "Tahta henüz algılanmadı"
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var captureThread: HandlerThread? = null
+    private var captureHandler: Handler? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (projection != null) return START_NOT_STICKY
@@ -49,6 +52,8 @@ class ScreenCaptureService : Service() {
 
         BoardVision.initialize(this)
         BoardVision.reset()
+        captureThread = HandlerThread("ChessFrameAnalyzer").apply { start() }
+        captureHandler = Handler(captureThread!!.looper)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Ekran yakalama başlatılıyor..."))
 
@@ -116,7 +121,7 @@ class ScreenCaptureService : Service() {
                 }
                 image.close()
             }
-        }, mainHandler)
+        }, captureHandler)
 
         virtualDisplay = projection?.createVirtualDisplay(
             "ChessClassScreenCapture",
@@ -177,6 +182,10 @@ class ScreenCaptureService : Service() {
         virtualDisplay = null
         imageReader?.close()
         imageReader = null
+        captureHandler?.removeCallbacksAndMessages(null)
+        captureThread?.quitSafely()
+        captureThread = null
+        captureHandler = null
         projectionCallback?.let { projection?.unregisterCallback(it) }
         projectionCallback = null
         if (stopProjection) projection?.stop()
