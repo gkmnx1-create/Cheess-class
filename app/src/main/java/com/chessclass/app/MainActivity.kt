@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
     private var waitingForOverlayPermission = false
     private var startupStarted = false
     private var waitingForUsageAccess = false
+    private var captureOnlyLaunch = false
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -39,6 +40,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        captureOnlyLaunch = intent.getBooleanExtra(EXTRA_START_CAPTURE, false)
+        if (captureOnlyLaunch) {
+            requestScreenCapture()
+            return
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
@@ -64,7 +70,7 @@ class MainActivity : ComponentActivity() {
             ))
             return
         }
-        startFloatingUiAndRequestCapture()
+        startFloatingUiOnly()
     }
 
     override fun onResume() {
@@ -74,7 +80,7 @@ class MainActivity : ComponentActivity() {
             continueStartup()
         } else if (waitingForOverlayPermission && Settings.canDrawOverlays(this)) {
             waitingForOverlayPermission = false
-            startFloatingUiAndRequestCapture()
+            startFloatingUiOnly()
         }
     }
 
@@ -97,11 +103,21 @@ class MainActivity : ComponentActivity() {
         return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
 
-    private fun startFloatingUiAndRequestCapture() {
+    private fun startFloatingUiOnly() {
         if (startupStarted) return
         startupStarted = true
         startService(Intent(this, OverlayService::class.java))
+        finish()
+    }
+
+    private fun requestScreenCapture() {
+        if (startupStarted) return
+        startupStarted = true
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         captureLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    companion object {
+        const val EXTRA_START_CAPTURE = "com.chessclass.app.START_CAPTURE"
     }
 }
