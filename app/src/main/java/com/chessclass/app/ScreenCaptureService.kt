@@ -4,6 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -65,7 +67,7 @@ class ScreenCaptureService : Service() {
             val image = reader.acquireLatestImage()
             if (image != null) {
                 frameCount++
-                if (frameCount == 1 || frameCount % 15 == 0) {
+                if ((frameCount == 1 || frameCount % 15 == 0) && isChessClashForeground()) {
                     try {
                         val plane = image.planes[0]
                         val buffer = plane.buffer
@@ -120,6 +122,22 @@ class ScreenCaptureService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun isChessClashForeground(): Boolean {
+        val usage = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
+        val end = System.currentTimeMillis()
+        val events = usage.queryEvents(end - 15_000L, end)
+        val event = UsageEvents.Event()
+        var foregroundPackage: String? = null
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
+                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                foregroundPackage = event.packageName
+            }
+        }
+        return foregroundPackage == CHESS_CLASH_PACKAGE
+    }
+
     private fun buildNotification(message: String): Notification {
         val builder = if (Build.VERSION.SDK_INT >= 26)
             Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
@@ -164,5 +182,6 @@ class ScreenCaptureService : Service() {
         const val EXTRA_DATA = "capture_result_data"
         private const val CHANNEL_ID = "chess_class_capture"
         private const val NOTIFICATION_ID = 2401
+        private const val CHESS_CLASH_PACKAGE = "com.miniclip.chess"
     }
 }
