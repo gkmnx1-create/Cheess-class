@@ -267,6 +267,9 @@ class OverlayService : Service() {
         analysisIndicator?.text = if (analysisSucceeded) "✓" else "✕"
         captureIndicator?.text = if (captureActive) "✓" else "✕"
         closeIndicator?.text = "✓"
+        captureIndicator?.setTextColor(if (captureActive) 0xFF63D995.toInt() else 0xFFFF6B6B.toInt())
+        analysisIndicator?.setTextColor(if (analysisSucceeded) 0xFF63D995.toInt() else 0xFFFF6B6B.toInt())
+        closeIndicator?.setTextColor(0xFF63D995.toInt())
     }
 
     private fun closePanel() {
@@ -324,13 +327,24 @@ class OverlayService : Service() {
         statusView = status
         box.addView(status)
 
-        addAction(box, "♟  Bu konumu analiz et", "Yalnızca inceleme veya tekrar konumlarında") { detail ->
+        addAction(box, "♟  KONUM ANALİZİ", "Yalnızca inceleme veya tekrar konumlarında") { detail ->
             runStockfish(detail)
         }
-        addAction(box, "Ⅱ  Ekran yakalamayı durdur", "Ekran görüntüsü alımını kapat") { detail ->
-            stopScreenCapture(detail)
+        val captureTitle = if (captureActive) "Ⅱ  EKRAN YAKALAMAYI DURDUR" else "Ⅱ  EKRAN YAKALAMAYI BAŞLAT"
+        val captureSubtitle = if (captureActive) "Ekran görüntüsü alımını kapat" else "Tahtayı algılamak için ekran iznini başlat"
+        addAction(box, captureTitle, captureSubtitle) { detail ->
+            if (captureActive) {
+                stopScreenCapture(detail)
+            } else {
+                detail.text = "İzin ekranı açılıyor…"
+                val launchIntent = Intent(this, MainActivity::class.java).apply {
+                    putExtra(MainActivity.EXTRA_START_CAPTURE, true)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(launchIntent)
+            }
         }
-        addAction(box, "⏻  GX uygulamasını kapat", "G düğmesini kaldırır ve ekran yakalamayı durdurur") { detail ->
+        addAction(box, "⏻  GX KAPAT", "G düğmesini kaldırır ve ekran yakalamayı durdurur") { detail ->
             closeApplication(detail)
         }
 
