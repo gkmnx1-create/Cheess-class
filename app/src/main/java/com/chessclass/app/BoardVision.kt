@@ -58,7 +58,16 @@ object BoardVision {
                 lastGrid = copyGrid(grid)
                 aiBottomSide = detectBottomSide(grid)
                 castlingRights = "-" // Mid-game screenshots cannot prove historical castling rights.
-                return ScanResult("Tahta tanındı • İlk hamle bekleniyor", null, countPieces(grid), true)
+                // A static screenshot does not reveal the real side to move. Still
+                // provide an explicitly provisional analysis for the side at the
+                // bottom so the overlay is not silent until the next board change.
+                val provisionalFen = FenBuilder.build(
+                    grid, aiBottomSide ?: Side.WHITE, aiBottomSide ?: Side.WHITE, "-", "-"
+                )
+                return ScanResult(
+                    "Tahta tanındı • Geçici öneri (hamle sırası henüz doğrulanmadı)",
+                    provisionalFen, countPieces(grid), true
+                )
             }
             return acceptGrid(grid, true)
         }
