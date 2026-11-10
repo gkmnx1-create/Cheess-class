@@ -31,7 +31,11 @@ object BoardVision {
         if (!classifier.isTrained) {
             val trained = classifier.tryBootstrap(bitmap, board)
             return if (trained) {
-                lastGrid = null
+                // Bootstrap görüntüsü başlangıç konumu olduğundan ilk kareyi referans al.
+                // Böylece kalibrasyondan hemen sonra yapılan ilk hamle kaybolmaz.
+                val initialGrid = classifier.classifyBoard(bitmap, board)
+                lastGrid = initialGrid?.let { g -> Array(8) { r -> g[r].clone() } }
+                sideToMove = Side.WHITE
                 ScanResult("Tahta bulundu • Kalibrasyon tamamlandı (${board.confidence.toInt()}) • Konum okunuyor", null, 0)
             } else {
                 ScanResult("Tahta bulundu • Kalibrasyon için başlangıç dizilimini göster", null, 0)
@@ -44,7 +48,15 @@ object BoardVision {
         val previous = lastGrid
         if (previous != null) {
             val move = MoveAnalyzer.analyze(previous, grid)
+            if (move.kind == MoveAnalyzer.Kind.UNKNOWN) {
+                // Gürültü veya birden fazla belirsiz değişiklik varsa bu kareyi
+                // onaylama; sonraki taramada aynı hamleyi yeniden değerlendirelim.
+                return ScanResult("Tahta bulundu • Hamle doğrulanıyor…", null, countPieces(grid))
+            }
             if (move.mover != null) {
+                if (move.mover != sideToMove) {
+                    return ScanResult("Tahta bulundu • Hamle sırası doğrulanıyor…", null, countPieces(grid))
+                }
                 sideToMove = if (move.mover == Side.WHITE) Side.BLACK else Side.WHITE
             }
         }
