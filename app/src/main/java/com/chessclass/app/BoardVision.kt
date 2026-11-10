@@ -128,6 +128,18 @@ object BoardVision {
         val turn = nextSideToMove
             ?: return ScanResult("Hamle sırası henüz bilinmiyor", null, countPieces(grid), ai)
         if (observedMove) updateFenMetadata(previous, grid, boardOrientation)
+
+        // Only calculate a move for the person whose pieces occupy the bottom half.
+        // If the opponent just moved, commit that board state and wait for the player's turn.
+        val playerSide = if (ai) (aiBottomSide ?: detectBottomSide(grid))
+            else (fallbackClassifier.bootstrapSide() ?: detectBottomSide(grid))
+        if (turn != playerSide) {
+            sideToMove = turn
+            lastGrid = copyGrid(grid)
+            lastFen = null
+            return ScanResult("Rakibin hamlesi algılandı • Senin sıran bekleniyor", null, countPieces(grid), ai)
+        }
+
         val fen = FenBuilder.build(grid, boardOrientation, turn, castlingRights ?: "-", enPassantTarget)
             ?: return ScanResult("Konum FEN'e çevrilemedi", null, countPieces(grid), ai)
 
