@@ -3,6 +3,7 @@ package com.chessclass.app
 import android.graphics.Bitmap
 import android.graphics.Color
 import kotlin.math.sqrt
+import kotlin.math.abs
 import java.util.Base64
 
 /**
