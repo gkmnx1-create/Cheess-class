@@ -5,12 +5,9 @@ import java.io.File
 
 class StockfishEngine(private val context: Context) {
     fun analyzeStartPosition(depth: Int = 12): String {
-        val engineFile = File(context.filesDir, "stockfish")
-        if (!engineFile.exists()) {
-            context.assets.open("stockfish").use { input ->
-                engineFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            engineFile.setExecutable(true, true)
+        val engineFile = File(context.applicationInfo.nativeLibraryDir, "libstockfish.so")
+        if (!engineFile.exists() || !engineFile.canExecute()) {
+            return "Stockfish dosyası bulunamadı veya çalıştırma izni yok: ${engineFile.absolutePath}"
         }
 
         val process = ProcessBuilder(engineFile.absolutePath)
@@ -44,9 +41,6 @@ class StockfishEngine(private val context: Context) {
             var bestMove = "Hamle bulunamadı."
             while (true) {
                 line = reader.readLine() ?: break
-                if (line.startsWith("info depth")) {
-                    bestMove = line
-                }
                 if (line.startsWith("bestmove")) {
                     bestMove = line
                     break
