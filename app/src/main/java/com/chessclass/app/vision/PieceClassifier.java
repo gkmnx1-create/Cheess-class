@@ -21,6 +21,11 @@ public class PieceClassifier {
     };
 
     private SquareSampler.Sample[] templates;
+    // Per-piece prototypes learned from the current chess-set artwork at bootstrap.
+    // Index 0..5 = white P/N/B/R/Q/K, 6..11 = black p/n/b/r/q/k.
+    // The second dimension separates light and dark board squares.
+    private float[][][] typePrototypes = new float[12][2][SquareSampler.N * SquareSampler.N];
+    private int[][] typePrototypeCounts = new int[12][2];
     private SquareSampler.Sample[] previousFrame;
     private char[] previousLabels;
     private char[] labels;
@@ -91,6 +96,7 @@ public class PieceClassifier {
         templates = samples;
         labels = map;
         bootstrapSide = side;
+        buildTypePrototypes(samples, map);
 
         float whiteSum = 0; int whiteN = 0;
         float blackSum = 0; int blackN = 0;
@@ -187,31 +193,83 @@ public class PieceClassifier {
         return o;
     }
 
-    private char classifyOne(SquareSampler.Sample s, int r, int f) {
-        if (s.edgeEnergy < pieceColorThreshold) return '.';
-
-        float distWhite = Math.abs(s.meanLum - whitePieceLumAvg);
-        float distBlack = Math.abs(s.meanLum - blackPieceLumAvg);
-        boolean isWhitePiece = distWhite < distBlack;
-
-        boolean light = ((r + f) & 1) == 0;
-        float best = Float.MAX_VALUE;
-        char bestC = isWhitePiece ? 'P' : 'p';
-        for (int i = 0; i < templates.length; i++) {
-            char tc = labels[i];
-            if (tc == '.') continue;
-            if (Character.isUpperCase(tc) != isWhitePiece) continue;
-            boolean tplLight = (((i / 8) + (i % 8)) & 1) == 0;
-            if (tplLight != light) continue;
-            float d = SquareSampler.lumDistance(s.feature, templates[i].feature);
-            if (d < best) { best = d; bestC = tc; }
+    private int typeIndex(char piece) {
+        char p = Character.toUpperCase(piece);
+        int base;
+        switch (p) {
+            case 'P': base = 0; break;
+            case 'N': base = 1; break;
+            case 'B': base = 2; break;
+            case 'R': base = 3; break;
+            case 'Q': base = 4; break;
+            case 'K': base = 5; break;
+            default: return -1;
         }
-        return bestC;
+        return Character.isUpperCase(piece) ? base : base + 6;
+    }
+
+    private void buildTypePrototypes(SquareSampler.Sample[] samples, char[] pieceLabels) {
+        typePrototypes = new float[12][2][SquareSampler.N * SquareSampler.N];
+        typePrototypeCounts = new int[12][2];
+        for (int i = 0; i < 64; i++) {
+            char piece = pieceLabels[i];
+            if (piece == '.') continue;
+            int type = typeIndex(piece);
+            if (type < 0) continue;
+            int row = i / 8;
+            int file = i % 8;
+            int squareTone = ((row + file) & 1) == 0 ? 0 : 1;
+            float[] source = samples[i].feature;
+            for (int j = 0; j < source.length; j++) {
+                typePrototypes[type][squareTone][j] += source[j];
+            }
+            typePrototypeCounts[type][squareTone]++;
+        }
+        for (int type = 0; type < 12; type++) {
+            for (int tone = 0; tone < 2; tone++) {
+                int count = typePrototypeCounts[type][tone];
+                if (count == 0) continue;
+                for (int j = 0; j < typePrototypes[type][tone].length; j++) {
+                    typePrototypes[type][tone][j] /= count;
+                }
+            }
+        }
+    }
+
+    private char classifyOne(SquareSampler.Sample sample, int row, int file) {
+        if (sample.edgeEnergy < pieceColorThreshold) return '.';
+
+        float distWhite = Math.abs(sample.meanLum - whitePieceLumAvg);
+        float distBlack = Math.abs(sample.meanLum - blackPieceLumAvg);
+        boolean isWhitePiece = distWhite < distBlack;
+        int squareTone = ((row + file) & 1) == 0 ? 0 : 1;
+        int firstType = isWhitePiece ? 0 : 6;
+        float best = Float.MAX_VALUE;
+        char bestPiece = isWhitePiece ? 'P' : 'p';
+
+        // Compare against the average shape of each piece type, rather than
+        // one individual starting-square sample. This reduces noise from
+        // shadows, animation frames and small artwork differences.
+        for (int offset = 0; offset < 6; offset++) {
+            int type = firstType + offset;
+            if (typePrototypeCounts[type][squareTone] == 0) continue;
+            float distance = SquareSampler.lumDistance(
+                    sample.feature, typePrototypes[type][squareTone]);
+            if (distance < best) {
+                best = distance;
+                bestPiece = isWhitePiece
+                        ? new char[]{'P', 'N', 'B', 'R', 'Q', 'K'}[offset]
+                        : new char[]{'p', 'n', 'b', 'r', 'q', 'k'}[offset];
+            }
+        }
+        return bestPiece;
     }
 
     public synchronized void reset() {
         templates = null;
         labels = null;
+        typePrototypes = new float[12][2][SquareSampler.N * SquareSampler.N];
+        typePrototypeCounts = new int[12][2];
         previousFrame = null;
         previousLabels = null;
         trained = false;
