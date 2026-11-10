@@ -50,10 +50,14 @@ class ScreenCaptureService : Service() {
             return START_NOT_STICKY
         }
 
-        BoardVision.initialize(this)
-        BoardVision.reset()
         captureThread = HandlerThread("ChessFrameAnalyzer").apply { start() }
         captureHandler = Handler(captureThread!!.looper)
+        // ONNX session creation can be expensive; initialize it on the same worker
+        // that processes frames, never on the service/main thread.
+        captureHandler?.post {
+            BoardVision.initialize(applicationContext)
+            BoardVision.reset()
+        }
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Ekran yakalama başlatılıyor..."))
 
