@@ -81,11 +81,9 @@ class ScreenCaptureService : Service() {
                         val bitmap = Bitmap.createBitmap(pixels, image.width, image.height, Bitmap.Config.ARGB_8888)
                         val scan = BoardVision.scan(bitmap)
                         lastBoardSummary = scan.summary
-                        scan.fen?.let { fen ->
-                            sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
-                                .putExtra(EXTRA_FEN, fen)
-                                .putExtra(EXTRA_SUMMARY, scan.summary))
-                        }
+                        sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
+                            .putExtra(EXTRA_FEN, scan.fen)
+                            .putExtra(EXTRA_SUMMARY, scan.summary))
                         bitmap.recycle()
                     } catch (_: Exception) {
                         lastBoardSummary = "Tahta görüntüsü okunamadı"
