@@ -85,11 +85,24 @@ class LiteRtSquareClassifier(context: Context) : AutoCloseable {
                 output[0].fill(0f)
                 model.run(input, output)
 
+                val scores = output[0]
+                if (scores.any { !it.isFinite() }) return null
+                // Accept either probability output or raw logits. Softmax converts
+                // logits to comparable confidence values before applying the threshold.
+                val sum = scores.sum()
+                val looksLikeProbabilities = scores.all { it >= 0f && it <= 1f } &&
+                    kotlin.math.abs(sum - 1f) < 0.08f
+                val probabilities = if (looksLikeProbabilities) scores else {
+                    val maxScore = scores.maxOrNull() ?: return null
+                    val exps = FloatArray(CLASS_COUNT) { kotlin.math.exp((scores[it] - maxScore).toDouble()).toFloat() }
+                    val total = exps.sum().takeIf { it > 0f && it.isFinite() } ?: return null
+                    FloatArray(CLASS_COUNT) { exps[it] / total }
+                }
                 var best = 0
-                for (i in 1 until CLASS_COUNT) if (output[0][i] > output[0][best]) best = i
-                val confidence = output[0][best]
+                for (i in 1 until CLASS_COUNT) if (probabilities[i] > probabilities[best]) best = i
+                val confidence = probabilities[best]
                 // Never invent a piece when the model is unsure.
-                if (!confidence.isFinite() || confidence < CONFIDENCE_THRESHOLD) return null
+                if (confidence < CONFIDENCE_THRESHOLD) return null
                 grid[rank][file] = LABELS[best]
             }
         }
