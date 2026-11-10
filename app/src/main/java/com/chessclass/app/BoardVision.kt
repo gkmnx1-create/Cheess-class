@@ -15,6 +15,7 @@ object BoardVision {
     private val fallbackClassifier = PieceClassifier()
     private var aiClassifier: LiteRtSquareClassifier? = null
     private var lastGrid: Array<CharArray>? = null
+    private val recentAiFrames = ArrayDeque<Array<CharArray>>()
     private var lastFen: String? = null
     // Unknown until a real move is observed. A static mid-game screenshot does not
     // contain enough information to determine whose turn it is.
@@ -31,6 +32,7 @@ object BoardVision {
     @Synchronized fun reset() {
         fallbackClassifier.reset()
         lastGrid = null
+        recentAiFrames.clear()
         sideToMove = null
         aiBottomSide = null
         castlingRights = null
@@ -48,9 +50,14 @@ object BoardVision {
 
         val model = aiClassifier
         if (model?.isModelReady == true) {
-            val grid = model.classifyBoard(bitmap, board.left, board.top, board.side)
-                ?: return ScanResult("Yapay zekâ bazı karelerden emin değil; yeniden taranıyor…", null, 0, true)
-            // Calibrate from the first stable image, including games that start mid-position.
+            val read = model.classifyBoard(bitmap, board.left, board.top, board.side)
+                ?: return ScanResult("Tahta bulundu fakat taş sınıflandırma güveni çok düşük; hizalama yeniden deneniyor…", null, 0, true)
+            val grid = stabilizeAiFrame(read.grid)
+                ?: return ScanResult(
+                    "Taşlar okunuyor • Görüntüler karşılaştırılıyor (${(read.meanConfidence * 100).toInt()}% ortalama güven)",
+                    null, countPieces(read.grid), true
+                )
+            // Calibrate only after the same complete board has been seen in at least two frames.
             if (lastGrid == null) {
                 val validation = FenBuilder.validate(grid)
                 if (!validation.ok) return ScanResult("AI konumu doğrulayamadı: ${validation.reason}", null, countPieces(grid), true)
@@ -95,6 +102,24 @@ object BoardVision {
         val result = acceptGrid(grid, false)
         if (result.fen != null) fallbackClassifier.commitConfirmed(grid, bitmap, board)
         return result
+    }
+
+    /**
+     * Rejects one-frame animation/recognition noise. A complete board must repeat
+     * in two consecutive samples before it can affect move tracking or FEN.
+     */
+    private fun stabilizeAiFrame(grid: Array<CharArray>): Array<CharArray>? {
+        val copy = copyGrid(grid)
+        recentAiFrames.addLast(copy)
+        while (recentAiFrames.size > 3) recentAiFrames.removeFirst()
+        val match = recentAiFrames.firstOrNull { previous ->
+            previous.indices.all { r -> previous[r].contentEquals(copy[r]) }
+        }
+        if (match != null) return copyGrid(match)
+        if (recentAiFrames.size < 3) return null
+        // If three samples disagree, do not guess; the rolling window will
+        // confirm the next settled frame before it reaches move tracking.
+        return null
     }
 
     private fun acceptGrid(grid: Array<CharArray>, ai: Boolean): ScanResult {
