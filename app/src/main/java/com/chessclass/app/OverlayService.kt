@@ -264,7 +264,10 @@ class OverlayService : Service() {
                 } else {
                     latestAnalysis = resultText
                     analysisSucceeded = bestMove != null && bestMove != "0000" && bestMove != "(none)" && !raw.startsWith("Hata:")
-                    if (analysisSucceeded) showSuggestion(formatTurkishMove(currentFen!!, bestMove!!)) else hideSuggestion()
+                    if (analysisSucceeded) {
+                        val moveText = formatTurkishMove(currentFen!!, bestMove!!)
+                        showSuggestion(moveText + "\\n" + explainPosition(currentFen!!, bestMove!!, raw))
+                    } else hideSuggestion()
                 }
                 refreshIndicators()
                 statusView?.text = displayStatus()
@@ -366,6 +369,66 @@ class OverlayService : Service() {
         }
         val promotion = if (uci.length >= 5) " = " + uci[4].uppercaseChar() else ""
         return (if (name.isBlank()) "" else name + " ") + toSquare + promotion
+    }
+
+    private fun explainPosition(fen: String, bestMove: String, engineOutput: String): String {
+        val board = fen.substringBefore(" ")
+        val values = mapOf('p' to 1, 'n' to 3, 'b' to 3, 'r' to 5, 'q' to 9)
+        var balance = 0
+        for (piece in board) {
+            val value = values[piece.lowercaseChar()] ?: 0
+            balance += if (piece.isUpperCase()) value else -value
+        }
+        val scoreMatch = Regex("""score cp (-?\\d+)""").find(engineOutput)
+        val mateMatch = Regex("""score mate (-?\\d+)""").find(engineOutput)
+        val score = scoreMatch?.groupValues?.get(1)?.toIntOrNull()
+        val mover = if (fen.split(" ").getOrNull(1) == "b") "Siyah" else "Beyaz"
+        val position = when {
+            mateMatch != null -> {
+                val mate = mateMatch.groupValues[1]
+                if (mate.startsWith("-")) "Motor, aleyhine zorunlu mat görüyor."
+                else "Motor, lehine yaklaşık $mate hamlede mat görüyor."
+            }
+            score != null && kotlin.math.abs(score) >= 150 -> "Motor değerlendirmesi: belirgin avantaj."
+            score != null && kotlin.math.abs(score) >= 50 -> "Motor değerlendirmesi: küçük/orta düzey avantaj."
+            score != null -> "Motor değerlendirmesi: konum dengeliye yakın."
+            else -> "Motor en iyi devam yolunu hesapladı."
+        }
+        val moveKind = when {
+            bestMove.length >= 4 && board.isNotEmpty() -> {
+                val from = bestMove.substring(0, 2)
+                val to = bestMove.substring(2, 4)
+                val pieceAt = pieceAtFenSquare(board, from)
+                val targetAt = pieceAtFenSquare(board, to)
+                when {
+                    targetAt != null -> "Bu hamle taş alışı içeriyor."
+                    pieceAt?.lowercaseChar() == 'n' || pieceAt?.lowercaseChar() == 'b' ->
+                        "Taşı daha etkili bir kareye yerleştiriyor."
+                    pieceAt?.lowercaseChar() == 'q' || pieceAt?.lowercaseChar() == 'r' ->
+                        "Ağır taşı etkinleştirip baskıyı artırıyor."
+                    pieceAt?.lowercaseChar() == 'p' -> "Piyon yapısını ve merkez alanını değiştirebilir."
+                    else -> "En güçlü devam yolunu seçiyor."
+                }
+            }
+            else -> "En güçlü devam yolunu seçiyor."
+        }
+        return "$mover oynuyor • $moveKind\\n$position"
+    }
+
+    private fun pieceAtFenSquare(board: String, square: String): Char? {
+        if (square.length != 2 || square[0] !in 'a'..'h' || square[1] !in '1'..'8') return null
+        val rows = board.split("/")
+        val row = 8 - square[1].digitToInt()
+        if (row !in rows.indices) return null
+        var file = 0
+        for (piece in rows[row]) {
+            if (piece.isDigit()) file += piece.digitToInt()
+            else {
+                if (file == square[0] - 'a') return piece
+                file++
+            }
+        }
+        return null
     }
 
     private fun showSuggestion(move: String) {
