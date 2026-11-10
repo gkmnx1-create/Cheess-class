@@ -25,6 +25,8 @@ import kotlin.math.abs
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubble: TextView? = null
+    private var suggestionView: TextView? = null
+    private var suggestionParams: WindowManager.LayoutParams? = null
     private var panel: LinearLayout? = null
     private var statusView: TextView? = null
     private var analysisIndicator: TextView? = null
@@ -114,6 +116,10 @@ class OverlayService : Service() {
                         bubbleParams.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
                         bubbleParams.y = startY + (event.rawY - downY).toInt()
                         windowManager.updateViewLayout(view, bubbleParams)
+                        suggestionParams?.let { params ->
+                            params.y = bubbleParams.y + dp(8)
+                            windowManager.updateViewLayout(suggestionView, params)
+                        }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -200,6 +206,7 @@ class OverlayService : Service() {
                 } else {
                     latestAnalysis = resultText
                     analysisSucceeded = bestMove != null && bestMove != "0000" && bestMove != "(none)" && !raw.startsWith("Hata:")
+                    if (analysisSucceeded) showSuggestion(bestMove!!) else hideSuggestion()
                 }
                 refreshIndicators()
                 statusView?.text = displayStatus()
@@ -216,6 +223,7 @@ class OverlayService : Service() {
         lastAnalyzedPosition = ""
         captureActive = false
         analysisSucceeded = false
+        hideSuggestion()
         refreshIndicators()
         status.text = "✓ Ekran yakalama durduruldu"
     }
@@ -261,6 +269,42 @@ class OverlayService : Service() {
         box.addView(card, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(6) })
+    }
+
+    private fun showSuggestion(move: String) {
+        val view = suggestionView ?: TextView(this).apply {
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(9), dp(12), dp(9))
+            background = rounded(0xF51B2940.toInt(), 0xFF63D995.toInt(), 16)
+            elevation = dp(10).toFloat()
+            isClickable = false
+        }.also {
+            suggestionView = it
+            suggestionParams = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                overlayType, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                x = dp(78)
+                y = bubbleParams.y + dp(8)
+            }
+            windowManager.addView(it, suggestionParams)
+        }
+        view.text = "ÖNERİ  $move"
+        view.visibility = View.VISIBLE
+        suggestionParams?.let { params ->
+            params.y = bubbleParams.y + dp(8)
+            try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
+        }
+    }
+
+    private fun hideSuggestion() {
+        suggestionView?.visibility = View.GONE
     }
 
     private fun refreshIndicators() {
@@ -379,6 +423,9 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         closePanel()
+        suggestionView?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+        suggestionView = null
+        suggestionParams = null
         bubble?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         bubble = null
         if (receiverRegistered) {
