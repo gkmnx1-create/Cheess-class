@@ -70,7 +70,7 @@ class StockfishEngine(private val context: Context) {
                     while (true) {
                         val line = reader.readLine() ?: break
                         if (line.startsWith("info depth ")) {
-                            val depth = Regex("""\\bdepth (\\d+)""").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                            val depth = Regex("""\bdepth (\d+)""").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: -1
                             if (depth >= deepestDepth) {
                                 deepestDepth = depth
                                 deepestInfo = line
