@@ -103,6 +103,12 @@ object BoardVision {
             } else if (move.kind == MoveAnalyzer.Kind.UNKNOWN || move.mover == null) {
                 return ScanResult("Tahta bulundu • Hamle doğrulanıyor…", null, countPieces(grid), ai)
             } else {
+                // Once a turn has been established, the same side cannot move twice
+                // in succession. Reject animation noise or a misclassified board
+                // instead of feeding a false position to Stockfish.
+                if (sideToMove != null && move.mover != sideToMove) {
+                    return ScanResult("Tahta değişti • Hamle sırası doğrulanıyor…", null, countPieces(grid), ai)
+                }
                 observedMove = true
                 // The moving piece's colour determines the next side; do not assume
                 // that the player at the bottom is always White.
