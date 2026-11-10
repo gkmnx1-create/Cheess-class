@@ -32,7 +32,7 @@ object BoardVision {
             val trained = classifier.tryBootstrap(bitmap, board)
             return if (trained) {
                 lastGrid = null
-                ScanResult("Tahta bulundu • Kalibrasyon tamamlandı (" + board.confidence.toInt() + ") • Konum okunuyor", null, 0)
+                ScanResult("Tahta bulundu • Kalibrasyon tamamlandı (${board.confidence.toInt()}) • Konum okunuyor", null, 0)
             } else {
                 ScanResult("Tahta bulundu • Kalibrasyon için başlangıç dizilimini göster", null, 0)
             }
@@ -49,7 +49,7 @@ object BoardVision {
             }
         }
 
-        val fen = FenBuilder.build(grid, classifier.bootstrapSide, sideToMove)
+        val fen = FenBuilder.build(grid, classifier.bootstrapSide(), sideToMove)
         if (fen == null) {
             return ScanResult("Tahta bulundu • Taşlar okunuyor, konum henüz doğrulanamadı", null, countPieces(grid))
         }
