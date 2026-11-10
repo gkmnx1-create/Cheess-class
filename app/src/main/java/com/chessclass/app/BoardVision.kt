@@ -19,6 +19,8 @@ object BoardVision {
     // contain enough information to determine whose turn it is.
     private var sideToMove: Side? = null
     private var aiBottomSide: Side? = null
+    private var castlingRights: String? = null
+    private var enPassantTarget: String = "-"
     private var lastFen: String? = null
 
     @Synchronized
@@ -31,6 +33,8 @@ object BoardVision {
         lastGrid = null
         sideToMove = null
         aiBottomSide = null
+        castlingRights = null
+        enPassantTarget = "-"
         lastFen = null
     }
 
@@ -53,6 +57,7 @@ object BoardVision {
                 if (!validation.ok) return ScanResult("AI konumu doğrulayamadı: ${validation.reason}", null, countPieces(grid), true)
                 lastGrid = copyGrid(grid)
                 aiBottomSide = detectBottomSide(grid)
+                castlingRights = "-" // Mid-game screenshots cannot prove historical castling rights.
                 return ScanResult("Tahta tanındı • İlk hamle bekleniyor", null, countPieces(grid), true)
             }
             return acceptGrid(grid, true)
@@ -67,6 +72,8 @@ object BoardVision {
                     ScanResult("Kalibrasyon tamamlandı fakat taşlar okunamadı", null, 0)
                 } else {
                     lastGrid = copyGrid(initialGrid)
+                    castlingRights = "KQkq"
+                    enPassantTarget = "-"
                     sideToMove = null
                     lastFen = null
                     ScanResult("Eski tanıma kalibre edildi • İlk hamle bekleniyor", null, 0)
@@ -118,7 +125,8 @@ object BoardVision {
             else (fallbackClassifier.bootstrapSide() ?: Side.WHITE)
         val turn = nextSideToMove
             ?: return ScanResult("Hamle sırası henüz bilinmiyor", null, countPieces(grid), ai)
-        val fen = FenBuilder.build(grid, boardOrientation, turn)
+        updateFenMetadata(previous, grid, boardOrientation)
+        val fen = FenBuilder.build(grid, boardOrientation, turn, castlingRights ?: "-", enPassantTarget)
             ?: return ScanResult("Konum FEN'e çevrilemedi", null, countPieces(grid), ai)
 
         sideToMove = turn
@@ -131,6 +139,39 @@ object BoardVision {
         )
     }
 
+
+
+    private fun updateFenMetadata(previous: Array<CharArray>?, current: Array<CharArray>, orientation: Side) {
+        if (previous == null) return
+        val before = if (orientation == Side.BLACK) FenBuilder.flip(previous) else previous
+        val after = if (orientation == Side.BLACK) FenBuilder.flip(current) else current
+        var rights = castlingRights ?: "-"
+        fun remove(token: String) { rights = rights.replace(token, "") }
+        // A king leaving its original square permanently removes both rights.
+        if (before[7][4] == 'K' && after[7][4] != 'K') { remove("K"); remove("Q") }
+        if (before[0][4] == 'k' && after[0][4] != 'k') { remove("k"); remove("q") }
+        // Moving or capturing an original corner rook removes that side's right.
+        if (before[7][0] == 'R' && after[7][0] != 'R') remove("Q")
+        if (before[7][7] == 'R' && after[7][7] != 'R') remove("K")
+        if (before[0][0] == 'r' && after[0][0] != 'r') remove("q")
+        if (before[0][7] == 'r' && after[0][7] != 'r') remove("k")
+        castlingRights = rights.ifEmpty { "-" }
+
+        enPassantTarget = "-"
+        for (r in 0..7) for (file in 0..7) {
+            val piece = before[r][file]
+            if (piece == 'P' && after[r][file] == '.' && r - 2 >= 0 &&
+                after[r - 2][file] == 'P' && before[r - 1][file] == '.') {
+                enPassantTarget = "" + ('a' + file) + (8 - (r - 1))
+                return
+            }
+            if (piece == 'p' && after[r][file] == '.' && r + 2 < 8 &&
+                after[r + 2][file] == 'p' && before[r + 1][file] == '.') {
+                enPassantTarget = "" + ('a' + file) + (8 - (r + 1))
+                return
+            }
+        }
+    }
 
     // Screen rows 4..7 are always the user's half. The majority piece colour
     // there determines whether the on-screen board is white-bottom or black-bottom.
