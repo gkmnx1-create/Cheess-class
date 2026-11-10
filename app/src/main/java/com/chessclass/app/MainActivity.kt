@@ -1,11 +1,15 @@
 package com.chessclass.app
 
 import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -29,7 +33,27 @@ class MainActivity : ComponentActivity() {
             var engineOk by remember { mutableStateOf<Boolean?>(null) }
             var overlayMessage by remember { mutableStateOf("Henüz etkinleştirilmedi") }
             var overlayOk by remember { mutableStateOf<Boolean?>(null) }
+            var captureMessage by remember { mutableStateOf("Ekran yakalama henüz başlatılmadı") }
+            var captureOk by remember { mutableStateOf<Boolean?>(null) }
             var isAnalyzing by remember { mutableStateOf(false) }
+
+            val captureLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                if (result.resultCode == RESULT_OK && result.data != null) {
+                    val serviceIntent = Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
+                        putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+                        putExtra(ScreenCaptureService.EXTRA_DATA, result.data)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent)
+                    else startService(serviceIntent)
+                    captureOk = true
+                    captureMessage = "Ekran yakalama izni verildi ve yakalama başlatıldı"
+                } else {
+                    captureOk = false
+                    captureMessage = "İzin verilmedi; ekran yakalama başlamadı"
+                }
+            }
 
             MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFE6B85C))) {
                 Column(
@@ -40,7 +64,7 @@ class MainActivity : ComponentActivity() {
                     Text("CHESS CLASS", color = Color(0xFFE6B85C), fontSize = 30.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(12.dp))
                     Text("Ana Panel", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.height(24.dp))
 
                     Button(
                         enabled = !isAnalyzing,
@@ -60,15 +84,21 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (isAnalyzing) "Stockfish test ediliyor..." else "Stockfish'i Test Et") }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (engineOk == true) "✓" else if (engineOk == false) "✕" else "•",
-                            color = if (engineOk == true) Color(0xFF70D69A) else if (engineOk == false) Color(0xFFFF7777) else Color.LightGray,
-                            fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        Text(engineMessage, color = Color(0xFFFFD166), fontSize = 12.sp)
-                    }
+                    StatusLine(engineOk, engineMessage)
 
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                            captureLauncher.launch(manager.createScreenCaptureIntent())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Ekranı Algılamayı Başlat") }
+                    StatusLine(captureOk, captureMessage)
+                    Text("Android ekran paylaşımı izni soracak. Onay verirsen ekran yakalama bildirimi görünür. İstediğinde Android bildirimlerinden CHESS CLASS'ı durdurabilirsin.",
+                        color = Color.LightGray, fontSize = 12.sp)
+
+                    Spacer(Modifier.height(20.dp))
                     Button(
                         onClick = {
                             if (!Settings.canDrawOverlays(this@MainActivity)) {
@@ -84,15 +114,9 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Yüzen Yardımcıyı Etkinleştir") }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (overlayOk == true) "✓" else if (overlayOk == false) "!" else "•",
-                            color = if (overlayOk == true) Color(0xFF70D69A) else if (overlayOk == false) Color(0xFFFFD166) else Color.LightGray,
-                            fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        Text(overlayMessage, color = Color(0xFFFFD166), fontSize = 12.sp)
-                    }
+                    StatusLine(overlayOk, overlayMessage)
 
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(Modifier.height(16.dp))
                     OutlinedButton(
                         onClick = { startService(Intent(this@MainActivity, OverlayService::class.java)) },
                         modifier = Modifier.fillMaxWidth()
@@ -100,5 +124,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatusLine(ok: Boolean?, message: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(if (ok == true) "✓" else if (ok == false) "✕" else "•",
+            color = if (ok == true) Color(0xFF70D69A) else if (ok == false) Color(0xFFFF7777) else Color.LightGray,
+            fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(8.dp))
+        Text(message, color = Color(0xFFFFD166), fontSize = 12.sp)
     }
 }
