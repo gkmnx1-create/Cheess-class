@@ -166,8 +166,6 @@ class OverlayService : Service() {
                 stopScreenCapture()
                 status.text = "Ekran yakalama durduruldu"
             }
-            addDashboardAction(this, "Paneli Kapat") { closePanel() }
-            addDashboardAction(this, "Yüzen G Düğmesini Kapat") { stopSelf() }
         }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
