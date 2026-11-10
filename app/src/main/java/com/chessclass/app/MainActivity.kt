@@ -7,6 +7,8 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +44,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         captureOnlyLaunch = intent.getBooleanExtra(EXTRA_START_CAPTURE, false)
         if (captureOnlyLaunch) {
+            // Keep the game visible behind Android's mandatory screen-share consent dialog.
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            window.decorView.alpha = 0f
             requestScreenCapture()
             return
         }
