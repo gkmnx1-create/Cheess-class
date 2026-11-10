@@ -206,7 +206,7 @@ class OverlayService : Service() {
                 } else {
                     latestAnalysis = resultText
                     analysisSucceeded = bestMove != null && bestMove != "0000" && bestMove != "(none)" && !raw.startsWith("Hata:")
-                    if (analysisSucceeded) showSuggestion(bestMove!!) else hideSuggestion()
+                    if (analysisSucceeded) showSuggestion(formatTurkishMove(currentFen!!, bestMove!!)) else hideSuggestion()
                 }
                 refreshIndicators()
                 statusView?.text = displayStatus()
@@ -269,6 +269,38 @@ class OverlayService : Service() {
         box.addView(card, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(6) })
+    }
+
+    private fun formatTurkishMove(fen: String, uci: String): String {
+        if (uci.length < 4) return uci
+        val files = "abcdefgh"
+        val ranks = "87654321"
+        val fromFile = files.indexOf(uci[0])
+        val fromRank = ranks.indexOf(uci[1])
+        val toSquare = uci.substring(2, 4)
+        if (fromFile !in 0..7 || fromRank !in 0..7) return uci
+        val rows = fen.substringBefore(" ").split("/")
+        if (rows.size != 8) return uci
+        var piece: Char? = null
+        var fileIndex = 0
+        for (ch in rows[fromRank]) {
+            if (ch.isDigit()) {
+                fileIndex += ch.digitToInt()
+            } else {
+                if (fileIndex == fromFile) piece = ch
+                fileIndex++
+            }
+        }
+        val name = when (piece?.uppercaseChar()) {
+            'N' -> "At"
+            'B' -> "Fil"
+            'R' -> "Kale"
+            'Q' -> "Vezir"
+            'K' -> "Şah"
+            else -> ""
+        }
+        val promotion = if (uci.length >= 5) " = " + uci[4].uppercaseChar() else ""
+        return (if (name.isBlank()) "" else name + " ") + toSquare + promotion
     }
 
     private fun showSuggestion(move: String) {
