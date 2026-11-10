@@ -20,7 +20,7 @@ class LiteRtSquareClassifier(context: Context) : AutoCloseable {
         private const val TILE_SIZE = 32
         private const val TILE_PIXELS = TILE_SIZE * TILE_SIZE
         private const val LABELS = "1KQRBNPkqrbnp"
-        private const val CONFIDENCE_THRESHOLD = 0.70f
+        private const val CONFIDENCE_THRESHOLD = 0.55f
     }
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
