@@ -132,7 +132,7 @@ class OverlayService : Service() {
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val maxBubbleX = (resources.displayMetrics.widthPixels - bubbleParams.width - dp(230 + 10 + 8)).coerceAtLeast(0)
+                        val maxBubbleX = (resources.displayMetrics.widthPixels - bubbleParams.width - dp(230 + 8)).coerceAtLeast(0)
                         val maxBubbleY = (resources.displayMetrics.heightPixels - bubbleParams.height).coerceAtLeast(0)
                         bubbleParams.x = (startX + (event.rawX - downX)).toInt().coerceIn(0, maxBubbleX)
                         bubbleParams.y = (startY + (event.rawY - downY)).toInt().coerceIn(0, maxBubbleY)
@@ -147,7 +147,7 @@ class OverlayService : Service() {
                         if (moved) {
                             // Snap the information window to the bubble once the drag ends.
                             suggestionParams?.let { params ->
-                                params.x = bubbleParams.x + bubbleParams.width + dp(10)
+                                params.x = bubbleParams.x + bubbleParams.width + dp(0)
                                 params.y = bubbleParams.y
                                 suggestionView?.let { suggestion ->
                                     try { windowManager.updateViewLayout(suggestion, params) } catch (_: Exception) {}
@@ -305,7 +305,7 @@ class OverlayService : Service() {
     ) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(8), dp(10), dp(7))
+            setPadding(dp(0), dp(8), dp(0), dp(7))
             background = rounded(0xFF1B2940.toInt(), 0xFF34445F.toInt(), 13)
             isClickable = true
             isFocusable = true
@@ -452,7 +452,7 @@ class OverlayService : Service() {
             maxWidth = dp(230)
             setPadding(dp(11), dp(8), dp(11), dp(8))
             background = rounded(0xF51B2940.toInt(), 0xFFFFD166.toInt(), 14)
-            elevation = dp(10).toFloat()
+            elevation = dp(0).toFloat()
             isClickable = false
         }.also {
             suggestionView = it
@@ -464,7 +464,7 @@ class OverlayService : Service() {
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.LEFT
-                x = bubbleParams.x + bubbleParams.width + dp(10)
+                x = bubbleParams.x + bubbleParams.width + dp(0)
                 y = bubbleParams.y
             }
             windowManager.addView(it, suggestionParams)
@@ -477,7 +477,7 @@ class OverlayService : Service() {
         )
         view.visibility = View.VISIBLE
         suggestionParams?.let { params ->
-            params.x = bubbleParams.x + bubbleParams.width + dp(10)
+            params.x = bubbleParams.x + bubbleParams.width + dp(0)
             params.y = bubbleParams.y
             try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
         }
