@@ -10,7 +10,9 @@ public class FenBuilder {
         Validation(boolean ok, String reason) { this.ok = ok; this.reason = reason; }
     }
 
-    public static String build(char[][] grid, Side bootstrapSide, Side stm) {
+    public static String build(char[][] grid, Side bootstrapSide, Side stm) { return build(grid, bootstrapSide, stm, "-", "-"); }
+
+    public static String build(char[][] grid, Side bootstrapSide, Side stm, String castling, String enPassant) {
         char[][] g = bootstrapSide == Side.BLACK ? flip(grid) : grid;
 
         Validation v = validate(g);
@@ -28,7 +30,9 @@ public class FenBuilder {
             if (run > 0) sb.append(run);
             if (r < 7) sb.append('/');
         }
-        return sb.toString() + " " + (stm == Side.WHITE ? "w" : "b") + " - - 0 1";
+        String rights = (castling == null || castling.isEmpty()) ? "-" : castling;
+        String ep = (enPassant == null || enPassant.isEmpty()) ? "-" : enPassant;
+        return sb.toString() + " " + (stm == Side.WHITE ? "w" : "b") + " " + rights + " " + ep + " 0 1";
     }
 
     public static Validation validate(char[][] g) {
