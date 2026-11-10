@@ -194,7 +194,7 @@ class OverlayService : Service() {
                 raw.startsWith("Hata:") -> raw
                 bestMove == null -> "Hata: Motor geçerli bir hamle döndürmedi. $raw"
                 bestMove == "0000" || bestMove == "(none)" -> "Bu konumda yasal hamle bulunamadı. Tahta algılamasını kontrol et."
-                else -> "✓ Önerilen hamle: $bestMove"
+                else -> "✓ $bestMove"
             }
             mainHandler.post {
                 if (requestGeneration != analysisGeneration) return@post
