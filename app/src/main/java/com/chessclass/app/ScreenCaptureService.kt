@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
@@ -79,14 +80,22 @@ class ScreenCaptureService : Service() {
                             }
                         }
                         val bitmap = Bitmap.createBitmap(pixels, image.width, image.height, Bitmap.Config.ARGB_8888)
-                        val scan = BoardVision.scan(bitmap)
-                        lastBoardSummary = scan.summary
+                        try {
+                            val scan = BoardVision.scan(bitmap)
+                            lastBoardSummary = "${scan.summary} • ${image.width}×${image.height}"
+                            sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
+                                .putExtra(EXTRA_FEN, scan.fen)
+                                .putExtra(EXTRA_SUMMARY, lastBoardSummary))
+                            Log.d("CHESS_CAPTURE", "scan=${scan.summary}, size=${image.width}x${image.height}, pieces=${scan.recognized}")
+                        } finally {
+                            bitmap.recycle()
+                        }
+                    } catch (error: Exception) {
+                        lastBoardSummary = "Ekran görüntüsü işlenemedi: ${error.javaClass.simpleName}"
+                        Log.e("CHESS_CAPTURE", lastBoardSummary, error)
                         sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
-                            .putExtra(EXTRA_FEN, scan.fen)
-                            .putExtra(EXTRA_SUMMARY, scan.summary))
-                        bitmap.recycle()
-                    } catch (_: Exception) {
-                        lastBoardSummary = "Tahta görüntüsü okunamadı"
+                            .putExtra(EXTRA_FEN, null as String?)
+                            .putExtra(EXTRA_SUMMARY, lastBoardSummary))
                     }
                     val managerNotification = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                     managerNotification.notify(
