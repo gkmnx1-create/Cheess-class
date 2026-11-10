@@ -35,6 +35,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
             var imageMessage by remember { mutableStateOf("Henüz tahta fotoğrafı seçilmedi.") }
+            var engineMessage by remember { mutableStateOf("Stockfish analizi henüz çalıştırılmadı.") }
+            var isAnalyzing by remember { mutableStateOf(false) }
             val imagePicker = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent()
             ) { uri: Uri? ->
@@ -81,6 +83,23 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)
                         )
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        enabled = !isAnalyzing,
+                        onClick = {
+                            isAnalyzing = true
+                            engineMessage = "Stockfish başlangıç konumunu analiz ediyor..."
+                            lifecycleScope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching { StockfishEngine(this@MainActivity).analyzeStartPosition() }
+                                        .getOrElse { "Motor başlatılamadı: ${it.message}" }
+                                }
+                                engineMessage = result
+                                isAnalyzing = false
+                            }
+                        }
+                    ) { Text(if (isAnalyzing) "Analiz ediliyor..." else "Stockfish'i dene") }
+                    Text(engineMessage, color = Color(0xFFFFD166), fontSize = 12.sp)
                     Spacer(Modifier.height(28.dp))
                     HorizontalDivider(color = Color.DarkGray)
                     Spacer(Modifier.height(18.dp))
@@ -98,7 +117,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(10.dp))
                     Text("İzin ekranında CHESS CLASS için 'Diğer uygulamaların üzerinde göster' seçeneğini aç. Sonra uygulamaya dönüp düğmeye tekrar bas.", color = Color.LightGray, fontSize = 13.sp)
                     Spacer(Modifier.height(18.dp))
-                    Text("Not: Bu sürüm fotoğraf seçip görüntüleyebilir. Taşları otomatik tanıma ve Stockfish analizi henüz eklenmedi.", color = Color(0xFFFFD166), fontSize = 12.sp)
+                    Text("Not: Bu sürüm fotoğraf seçip görüntüleyebilir. Stockfish motoru başlangıç konumunda test ediliyor. Seçilen fotoğrafın taşlarını tanıma ve fotoğrafı motora aktarma henüz eklenmedi.", color = Color(0xFFFFD166), fontSize = 12.sp)
                 }
             }
         }
