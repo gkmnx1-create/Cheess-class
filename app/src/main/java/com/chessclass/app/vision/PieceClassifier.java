@@ -124,7 +124,13 @@ public class PieceClassifier {
                 if (d > maxBootstrapNoise) maxBootstrapNoise = d;
             }
         }
-        frameChangeThreshold = Math.max(0.3f, maxBootstrapNoise * 2.0f + 0.1f);
+        // lumDistance is a SUM over 400 pixels. Convert it to mean-square
+        // distance before setting the frame-change threshold; otherwise the
+        // threshold can become so large that moved pieces are never detected.
+        float meanBootstrapNoise = maxBootstrapNoise /
+                (SquareSampler.N * SquareSampler.N);
+        frameChangeThreshold = Math.max(0.006f,
+                Math.min(0.08f, meanBootstrapNoise * 2.0f + 0.003f));
 
         trained = true;
         Log.i(TAG, "BOOTSTRAPPED side=" + side
@@ -146,7 +152,8 @@ public class PieceClassifier {
                 int idx = r * 8 + f;
                 if (previousFrame != null && previousLabels != null) {
                     float fd = SquareSampler.lumDistance(
-                            samples[idx].feature, previousFrame[idx].feature);
+                            samples[idx].feature, previousFrame[idx].feature) /
+                            (SquareSampler.N * SquareSampler.N);
                     if (fd < frameChangeThreshold) {
                         grid[r][f] = previousLabels[idx];
                         continue;
