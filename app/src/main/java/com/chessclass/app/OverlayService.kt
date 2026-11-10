@@ -128,20 +128,26 @@ class OverlayService : Service() {
                     MotionEvent.ACTION_MOVE -> {
                         bubbleParams.x = (startX - (event.rawX - downX)).toInt().coerceAtLeast(0)
                         bubbleParams.y = startY + (event.rawY - downY).toInt()
+                        // Move only the touchable G bubble during the drag.
+                        // Repositioning the second overlay on every touch event causes jank.
                         windowManager.updateViewLayout(view, bubbleParams)
-                        suggestionParams?.let { params ->
-                            params.x = bubbleParams.x + bubbleParams.width + dp(2)
-                            params.y = bubbleParams.y
-                            suggestionView?.let { suggestion ->
-                                try { windowManager.updateViewLayout(suggestion, params) } catch (_: Exception) {}
-                            }
-                        }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
                         val moved = abs(event.rawX - downX) > touchSlop ||
                             abs(event.rawY - downY) > touchSlop
-                        if (!moved) togglePanel()
+                        if (moved) {
+                            // Snap the information window to the bubble once the drag ends.
+                            suggestionParams?.let { params ->
+                                params.x = bubbleParams.x + bubbleParams.width + dp(2)
+                                params.y = bubbleParams.y
+                                suggestionView?.let { suggestion ->
+                                    try { windowManager.updateViewLayout(suggestion, params) } catch (_: Exception) {}
+                                }
+                            }
+                        } else {
+                            togglePanel()
+                        }
                         true
                     }
                     else -> true
