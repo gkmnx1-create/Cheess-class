@@ -58,10 +58,19 @@ class OverlayService : Service() {
             latestFen = intent.getStringExtra(ScreenCaptureService.EXTRA_FEN)
             latestSummary = intent.getStringExtra(ScreenCaptureService.EXTRA_SUMMARY) ?: "Tahta okundu"
             val incomingKey = latestFen?.split(" ")?.take(4)?.joinToString(" ")
-            if (incomingKey != lastAnalyzedPosition) analysisSucceeded = false
+            if (incomingKey != lastAnalyzedPosition) {
+                analysisSucceeded = false
+                // Never leave a recommendation for an older board position visible.
+                hideSuggestion()
+                latestAnalysis = if (latestFen.isNullOrBlank())
+                    "Tahta doğrulanıyor • Güncel konum bekleniyor"
+                else
+                    "⏳ Yeni konum algılandı • Güncel hamle hesaplanacak…"
+            }
             refreshIndicators()
             statusView?.text = displayStatus()
             val fen = latestFen
+            if (fen.isNullOrBlank()) hideSuggestion()
             if (!fen.isNullOrBlank()) {
                 val positionKey = fen.split(" ").take(4).joinToString(" ")
                 if (positionKey != lastAnalyzedPosition && !analysisInProgress) {
@@ -204,6 +213,8 @@ class OverlayService : Service() {
                 if (currentFen.isNullOrBlank()) {
                     latestAnalysis = "Tahta doğrulanamadı • Yeni konum bekleniyor"
                     lastAnalyzedPosition = ""
+                    analysisSucceeded = false
+                    hideSuggestion()
                 } else if (currentKey != positionKey) {
                     latestAnalysis = "⏳ Tahta değişti • Güncel konum analiz ediliyor…"
                     lastAnalyzedPosition = positionKey
