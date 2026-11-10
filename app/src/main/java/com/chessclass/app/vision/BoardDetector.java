@@ -38,24 +38,18 @@ public class BoardDetector {
         if (work != src) work.recycle();
 
         int[] gray = new int[W * H];
+        int[] chroma = new int[W * H];
         for (int i = 0; i < gray.length; i++) {
             int p = argb[i];
             int r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
             gray[i] = (r * 299 + g * 587 + b * 114) / 1000;
+            // Some board themes use similar brightness but different square hues.
+            chroma[i] = Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
         }
 
         int Wp = W + 1;
-        long[] ii = new long[Wp * (H + 1)];
-        for (int y = 0; y < H; y++) {
-            long row = 0;
-            int srcBase = y * W;
-            int dstBase = (y + 1) * Wp;
-            int prevBase = y * Wp;
-            for (int x = 0; x < W; x++) {
-                row += gray[srcBase + x];
-                ii[dstBase + x + 1] = ii[prevBase + x + 1] + row;
-            }
-        }
+        long[] ii = buildIntegral(gray, W, H, Wp);
+        long[] ci = buildIntegral(chroma, W, H, Wp);
 
         int minSide = Math.max(80, Math.min(W, H) / 3);
         int maxSide = (int) (Math.min(W, H) * 0.98);
@@ -70,7 +64,7 @@ public class BoardDetector {
             int posStep = Math.max(2, cell / 3);
             for (int y = 0; y + corrected <= H; y += posStep) {
                 for (int x = 0; x + corrected <= W; x += posStep) {
-                    double score = checkerScore(ii, Wp, x, y, cell);
+                    double score = checkerScoreCombined(ii, ci, Wp, x, y, cell);
                     if (best == null || score > best.score) {
                         best = new Candidate(x, y, corrected, cell, score);
                     }
@@ -80,7 +74,7 @@ public class BoardDetector {
 
         if (best == null) { Log.w(TAG, "locate: no candidate in " + W + "x" + H); return null; }
 
-        Candidate refined = refine(ii, Wp, W, H, best);
+        Candidate refined = refine(ii, ci, Wp, W, H, best);
 
         long elapsed = (System.nanoTime() - t0) / 1_000_000;
         Log.d(TAG, "locate: " + W + "x" + H + " best=" + refined.score
@@ -95,14 +89,14 @@ public class BoardDetector {
         return new Board(left, top, side, refined.score);
     }
 
-    private static Candidate refine(long[] ii, int Wp, int W, int H, Candidate c) {
+    private static Candidate refine(long[] ii, long[] ci, int Wp, int W, int H, Candidate c) {
         Candidate best = c;
         int cell = c.cell;
         for (int dy = -cell; dy <= cell; dy += 2) {
             for (int dx = -cell; dx <= cell; dx += 2) {
                 int x = c.x + dx, y = c.y + dy;
                 if (x < 0 || y < 0 || x + c.side >= W || y + c.side >= H) continue;
-                double sc = checkerScore(ii, Wp, x, y, cell);
+                double sc = checkerScoreCombined(ii, ci, Wp, x, y, cell);
                 if (sc > best.score) best = new Candidate(x, y, c.side, cell, sc);
             }
         }
@@ -116,6 +110,28 @@ public class BoardDetector {
             if (sc > best.score) best = new Candidate(x, y, newSide, newCell, sc);
         }
         return best;
+    }
+
+    private static long[] buildIntegral(int[] values, int W, int H, int Wp) {
+        long[] integral = new long[Wp * (H + 1)];
+        for (int y = 0; y < H; y++) {
+            long row = 0;
+            int srcBase = y * W;
+            int dstBase = (y + 1) * Wp;
+            int prevBase = y * Wp;
+            for (int x = 0; x < W; x++) {
+                row += values[srcBase + x];
+                integral[dstBase + x + 1] = integral[prevBase + x + 1] + row;
+            }
+        }
+        return integral;
+    }
+
+    // Brightness OR chroma contrast can identify the alternating square pattern.
+    private static double checkerScoreCombined(long[] gray, long[] chroma,
+                                               int Wp, int x, int y, int cell) {
+        return Math.max(checkerScore(gray, Wp, x, y, cell),
+                        checkerScore(chroma, Wp, x, y, cell));
     }
 
     private static double checkerScore(long[] ii, int Wp, int x0, int y0, int cell) {
