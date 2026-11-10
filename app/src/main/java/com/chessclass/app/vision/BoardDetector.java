@@ -106,7 +106,7 @@ public class BoardDetector {
             int newSide = newCell * 8;
             int x = best.x, y = best.y;
             if (x + newSide >= W || y + newSide >= H) continue;
-            double sc = checkerScore(ii, Wp, x, y, newCell);
+            double sc = checkerScoreCombined(ii, ci, Wp, x, y, newCell);
             if (sc > best.score) best = new Candidate(x, y, newSide, newCell, sc);
         }
         return best;
