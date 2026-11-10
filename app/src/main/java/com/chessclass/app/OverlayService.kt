@@ -139,6 +139,13 @@ class OverlayService : Service() {
         status.text = "Ekran yakalama durduruldu"
     }
 
+    private fun closeApplication(status: TextView) {
+        status.text = "CHESS CLASS kapatılıyor…"
+        stopService(Intent(this, ScreenCaptureService::class.java))
+        closePanel()
+        stopSelf()
+    }
+
     private fun addAction(
         box: LinearLayout,
         title: String,
@@ -220,6 +227,9 @@ class OverlayService : Service() {
         }
         addAction(box, "Ⅱ  Ekran yakalamayı durdur", "Ekran görüntüsü alımını kapat") { detail ->
             stopScreenCapture(detail)
+        }
+        addAction(box, "⏻  Uygulamayı tamamen kapat", "G düğmesini kaldırır ve ekran yakalamayı durdurur") { detail ->
+            closeApplication(detail)
         }
 
         val hint = label("İlk kullanım: tahtayı başlangıç diziliminde gösterip kalibrasyonun tamamlanmasını bekle.", 10f, 0xFFB8C4D6.toInt())
