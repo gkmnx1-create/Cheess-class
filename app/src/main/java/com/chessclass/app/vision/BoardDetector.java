@@ -54,7 +54,8 @@ public class BoardDetector {
         long[] ci = buildIntegral(chroma, W, H, Wp);
 
         int minSide = Math.max(80, Math.min(W, H) / 3);
-        int maxSide = (int) (Math.min(W, H) * 0.98);
+        // Allow boards that touch the screen edges; do not require an artificial 2% margin.
+        int maxSide = Math.min(W, H);
 
         Candidate best = null;
 
@@ -97,7 +98,7 @@ public class BoardDetector {
         for (int dy = -cell; dy <= cell; dy += 2) {
             for (int dx = -cell; dx <= cell; dx += 2) {
                 int x = c.x + dx, y = c.y + dy;
-                if (x < 0 || y < 0 || x + c.side >= W || y + c.side >= H) continue;
+                if (x < 0 || y < 0 || x + c.side > W || y + c.side > H) continue;
                 double sc = checkerScoreCombined(ii, ci, Wp, x, y, cell);
                 if (sc > best.score) best = new Candidate(x, y, c.side, cell, sc);
             }
@@ -107,7 +108,7 @@ public class BoardDetector {
             if (newCell < 5) continue;
             int newSide = newCell * 8;
             int x = best.x, y = best.y;
-            if (x + newSide >= W || y + newSide >= H) continue;
+            if (x + newSide > W || y + newSide > H) continue;
             double sc = checkerScoreCombined(ii, ci, Wp, x, y, newCell);
             if (sc > best.score) best = new Candidate(x, y, newSide, newCell, sc);
         }
