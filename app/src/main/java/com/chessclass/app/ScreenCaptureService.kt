@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 class ScreenCaptureService : Service() {
@@ -27,6 +28,7 @@ class ScreenCaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
     private var frameCount = 0
+    private var lastScanElapsedMs = 0L
     private var lastBoardSummary = "Tahta henüz algılanmadı"
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -60,14 +62,20 @@ class ScreenCaptureService : Service() {
         projection?.registerCallback(projectionCallback!!, mainHandler)
 
         val metrics = resources.displayMetrics
+        // Lower capture resolution to reduce memory bandwidth and CPU load.
+        val captureScale = minOf(1f, 720f / maxOf(metrics.widthPixels, metrics.heightPixels))
+        val captureWidth = (metrics.widthPixels * captureScale).toInt().coerceAtLeast(1)
+        val captureHeight = (metrics.heightPixels * captureScale).toInt().coerceAtLeast(1)
         imageReader = ImageReader.newInstance(
-            metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2
+            captureWidth, captureHeight, PixelFormat.RGBA_8888, 2
         )
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage()
             if (image != null) {
                 frameCount++
-                if ((frameCount == 1 || frameCount % 15 == 0) && isChessClashForeground()) {
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastScanElapsedMs >= SCAN_INTERVAL_MS && isChessClashForeground()) {
+                    lastScanElapsedMs = now
                     try {
                         val plane = image.planes[0]
                         val buffer = plane.buffer
@@ -111,8 +119,8 @@ class ScreenCaptureService : Service() {
 
         virtualDisplay = projection?.createVirtualDisplay(
             "ChessClassScreenCapture",
-            metrics.widthPixels,
-            metrics.heightPixels,
+            captureWidth,
+            captureHeight,
             metrics.densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             imageReader?.surface,
@@ -183,5 +191,6 @@ class ScreenCaptureService : Service() {
         private const val CHANNEL_ID = "chess_class_capture"
         private const val NOTIFICATION_ID = 2401
         private const val CHESS_CLASH_PACKAGE = "com.miniclip.chess"
+        private const val SCAN_INTERVAL_MS = 1000L
     }
 }
