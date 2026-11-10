@@ -105,11 +105,9 @@ class OverlayService : Service() {
         box.addView(row)
     }
 
-    private fun openMainApp() {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        startActivity(intent)
+    private fun stopScreenCapture() {
+        stopService(Intent(this, ScreenCaptureService::class.java))
+        closePanel()
     }
 
     private fun closePanel() {
@@ -130,8 +128,7 @@ class OverlayService : Service() {
                 setTextColor(0xFFFFD166.toInt())
                 gravity = Gravity.CENTER
             })
-            addMenuOption(this, "Ana Panele Geçiş") { openMainApp() }
-            addMenuOption(this, "Stockfish Analizi") { openMainApp() }
+            addMenuOption(this, "Ekran Yakalamayı Durdur") { stopScreenCapture() }
             addMenuOption(this, "Paneli Kapat") { closePanel() }
             addMenuOption(this, "Yüzen Düğmeyi Kapat") { stopSelf() }
         }
