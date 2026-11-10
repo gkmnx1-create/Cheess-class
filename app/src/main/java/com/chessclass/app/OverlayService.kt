@@ -295,7 +295,7 @@ class OverlayService : Service() {
             }
             windowManager.addView(it, suggestionParams)
         }
-        view.text = "ÖNERİ  $move"
+        view.text = move
         view.visibility = View.VISIBLE
         suggestionParams?.let { params ->
             params.y = bubbleParams.y + dp(8)
