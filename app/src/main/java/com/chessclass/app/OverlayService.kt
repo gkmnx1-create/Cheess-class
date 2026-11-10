@@ -29,6 +29,9 @@ class OverlayService : Service() {
     private var statusView: TextView? = null
     private var latestFen: String? = null
     private var latestSummary = "Tahta henüz algılanmadı"
+    private var latestAnalysis = ""
+    private var lastAnalyzedPosition = ""
+    @Volatile private var analysisInProgress = false
     private var receiverRegistered = false
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -39,7 +42,14 @@ class OverlayService : Service() {
             if (intent?.action != ScreenCaptureService.ACTION_BOARD_UPDATED) return
             latestFen = intent.getStringExtra(ScreenCaptureService.EXTRA_FEN)
             latestSummary = intent.getStringExtra(ScreenCaptureService.EXTRA_SUMMARY) ?: "Tahta okundu"
-            statusView?.text = latestSummary
+            statusView?.text = displayStatus()
+            val fen = latestFen
+            if (!fen.isNullOrBlank()) {
+                val positionKey = fen.split(" ").take(4).joinToString(" ")
+                if (positionKey != lastAnalyzedPosition && !analysisInProgress) {
+                    startAnalysis(fen, positionKey)
+                }
+            }
         }
     }
 
@@ -119,23 +129,60 @@ class OverlayService : Service() {
             if (bold) typeface = Typeface.DEFAULT_BOLD
         }
 
+    private fun displayStatus(): String =
+        if (latestAnalysis.isBlank()) latestSummary else latestSummary + "\n" + latestAnalysis
+
     private fun runStockfish(status: TextView) {
         val fen = latestFen
         if (fen.isNullOrBlank()) {
-            status.text = "Henüz doğrulanmış tahta yok. Başlangıç diziliminde kalibrasyon yap."
+            status.text = "Tahta henüz doğrulanmadı. Önce tahta algılamasını bekle."
             return
         }
-        status.text = "Stockfish konumu inceliyor…"
+        val key = fen.split(" ").take(4).joinToString(" ")
+        startAnalysis(fen, key, force = true)
+    }
+
+    private fun startAnalysis(fen: String, positionKey: String, force: Boolean = false) {
+        if (analysisInProgress) {
+            latestAnalysis = "⏳ Analiz zaten devam ediyor…"
+            statusView?.text = displayStatus()
+            return
+        }
+        if (!force && positionKey == lastAnalyzedPosition) return
+
+        analysisInProgress = true
+        lastAnalyzedPosition = positionKey
+        latestAnalysis = "⏳ Yeni konum algılandı • Hamle hesaplanıyor…"
+        statusView?.text = displayStatus()
+
         Thread {
-            val result = runCatching { StockfishEngine(this).analyzeFen(fen, 14) }
-                .getOrElse { "Hata: " + (it.message ?: "Motor başlatılamadı") }
-            mainHandler.post { status.text = latestSummary + "\n" + result + if (result.startsWith("Hata:")) "" else "\n✓ Analiz tamamlandı" }
+            val raw = runCatching { StockfishEngine(this).analyzeFen(fen, 14) }
+                .getOrElse { "Hata: " + (it.message ?: "Stockfish başlatılamadı") }
+            val bestMove = Regex("bestmove\\s+(\\S+)").find(raw)?.groupValues?.get(1)
+            val resultText = when {
+                raw.startsWith("Hata:") -> raw
+                bestMove == null -> "Hata: Motor geçerli bir hamle döndürmedi. $raw"
+                bestMove == "0000" || bestMove == "(none)" -> "Bu konumda yasal hamle bulunamadı. Tahta algılamasını kontrol et."
+                else -> "✓ Önerilen hamle: $bestMove"
+            }
+            mainHandler.post {
+                latestAnalysis = resultText
+                analysisInProgress = false
+                statusView?.text = displayStatus()
+                val currentFen = latestFen
+                if (!currentFen.isNullOrBlank()) {
+                    val currentKey = currentFen.split(" ").take(4).joinToString(" ")
+                    if (currentKey != lastAnalyzedPosition) startAnalysis(currentFen, currentKey)
+                }
+            }
         }.start()
     }
 
     private fun stopScreenCapture(status: TextView) {
         stopService(Intent(this, ScreenCaptureService::class.java))
         latestFen = null
+        latestAnalysis = ""
+        lastAnalyzedPosition = ""
         status.text = "✓ Ekran yakalama durduruldu"
     }
 
@@ -217,7 +264,7 @@ class OverlayService : Service() {
         header.addView(closeButton, LinearLayout.LayoutParams(dp(40), dp(40)))
         box.addView(header)
 
-        val status = label(latestSummary, 12f, 0xFFFFD166.toInt())
+        val status = label(displayStatus(), 12f, 0xFFFFD166.toInt())
         status.setPadding(dp(2), dp(10), dp(2), dp(2))
         statusView = status
         box.addView(status)
