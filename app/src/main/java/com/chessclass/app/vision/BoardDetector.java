@@ -25,7 +25,7 @@ public class BoardDetector {
         long t0 = System.nanoTime();
 
         int W0 = src.getWidth(), H0 = src.getHeight();
-        float scale = (float) WORK_MAX_EDGE / Math.max(W0, H0);
+        float scale = Math.min(1.0f, (float) WORK_MAX_EDGE / Math.max(W0, H0));
         int W = Math.max(64, Math.round(W0 * scale));
         int H = Math.max(64, Math.round(H0 * scale));
 
