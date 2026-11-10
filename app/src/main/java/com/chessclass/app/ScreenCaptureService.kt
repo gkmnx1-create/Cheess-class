@@ -93,7 +93,7 @@ class ScreenCaptureService : Service() {
                         val bitmap = Bitmap.createBitmap(pixels, image.width, image.height, Bitmap.Config.ARGB_8888)
                         try {
                             val scan = BoardVision.scan(bitmap)
-                            lastBoardSummary = "${scan.summary} • ${image.width}×${image.height}"
+                            lastBoardSummary = "${scan.summary} • Ekran: ${image.width}×${image.height} • Tahta ölçüsü otomatik"
                             sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
                                 .putExtra(EXTRA_FEN, scan.fen)
                                 .putExtra(EXTRA_SUMMARY, lastBoardSummary))
