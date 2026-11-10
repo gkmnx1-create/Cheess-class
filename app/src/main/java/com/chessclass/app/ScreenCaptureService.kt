@@ -78,7 +78,13 @@ class ScreenCaptureService : Service() {
                             }
                         }
                         val bitmap = Bitmap.createBitmap(pixels, image.width, image.height, Bitmap.Config.ARGB_8888)
-                        lastBoardSummary = BoardVision.inspect(bitmap)
+                        val scan = BoardVision.scan(bitmap)
+                        lastBoardSummary = scan.summary
+                        scan.fen?.let { fen ->
+                            sendBroadcast(Intent(ACTION_BOARD_UPDATED).setPackage(packageName)
+                                .putExtra(EXTRA_FEN, fen)
+                                .putExtra(EXTRA_SUMMARY, scan.summary))
+                        }
                         bitmap.recycle()
                     } catch (_: Exception) {
                         lastBoardSummary = "Tahta görüntüsü okunamadı"
@@ -109,8 +115,7 @@ class ScreenCaptureService : Service() {
     private fun buildNotification(message: String): Notification {
         val builder = if (Build.VERSION.SDK_INT >= 26)
             Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
-        return builder
-            .setContentTitle("CHESS CLASS ekran yakalama")
+        return builder.setContentTitle("CHESS CLASS ekran yakalama")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true)
@@ -119,11 +124,8 @@ class ScreenCaptureService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Ekran yakalama", NotificationManager.IMPORTANCE_LOW
-            )
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
+            val channel = NotificationChannel(CHANNEL_ID, "Ekran yakalama", NotificationManager.IMPORTANCE_LOW)
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
         }
     }
 
@@ -147,6 +149,9 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        const val ACTION_BOARD_UPDATED = "com.chessclass.app.BOARD_UPDATED"
+        const val EXTRA_FEN = "board_fen"
+        const val EXTRA_SUMMARY = "board_summary"
         const val EXTRA_RESULT_CODE = "capture_result_code"
         const val EXTRA_DATA = "capture_result_data"
         private const val CHANNEL_ID = "chess_class_capture"
