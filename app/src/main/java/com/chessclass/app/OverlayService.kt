@@ -212,20 +212,20 @@ class OverlayService : Service() {
     ) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(13), dp(11), dp(13), dp(10))
+            setPadding(dp(10), dp(8), dp(10), dp(7))
             background = rounded(0xFF1B2940.toInt(), 0xFF34445F.toInt(), 13)
             isClickable = true
             isFocusable = true
         }
-        val heading = label(title, 15f, 0xFFFFD166.toInt(), true)
-        val detail = label(subtitle, 11f, 0xFFCFD8E6.toInt())
-        detail.setPadding(0, dp(3), 0, 0)
+        val heading = label(title, 13f, 0xFFFFD166.toInt(), true)
+        val detail = label(subtitle, 10f, 0xFFCFD8E6.toInt())
+        detail.setPadding(0, dp(2), 0, 0)
         card.addView(heading)
         card.addView(detail)
         card.setOnClickListener { action(detail) }
         box.addView(card, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(8) })
+        ).apply { topMargin = dp(6) })
     }
 
     private fun closePanel() {
@@ -239,7 +239,7 @@ class OverlayService : Service() {
 
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(15), dp(15), dp(15), dp(13))
+            setPadding(dp(11), dp(11), dp(11), dp(9))
             background = rounded(0xF5101929.toInt(), 0xFFB8862B.toInt(), 19)
             elevation = dp(12).toFloat()
         }
@@ -248,23 +248,23 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val brand = label("G", 25f, 0xFFFFD166.toInt(), true).apply {
+        val brand = label("G", 22f, 0xFFFFD166.toInt(), true).apply {
             gravity = Gravity.CENTER
             background = rounded(0xFF34445F.toInt(), 0xFFFFD166.toInt(), 12)
-            layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
         }
         val titles = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), 0, 0, 0)
-            addView(label("GX", 18f, Color.WHITE, true))
-            addView(label("Akıllı satranç yardımcısı", 11f, 0xFFB8C4D6.toInt()))
+            setPadding(dp(8), 0, 0, 0)
+            addView(label("GX", 16f, Color.WHITE, true))
+            addView(label("Akıllı satranç yardımcısı", 10f, 0xFFB8C4D6.toInt()))
         }
         header.addView(brand)
         header.addView(titles, LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
         ))
 
-        val closeButton = label("✕", 22f, Color.WHITE, true).apply {
+        val closeButton = label("✕", 19f, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
             contentDescription = "Paneli kapat"
             background = rounded(0xFF34445F.toInt(), 0xFFFFD166.toInt(), 12)
@@ -272,11 +272,11 @@ class OverlayService : Service() {
             isFocusable = true
             setOnClickListener { closePanel() }
         }
-        header.addView(closeButton, LinearLayout.LayoutParams(dp(40), dp(40)))
+        header.addView(closeButton, LinearLayout.LayoutParams(dp(34), dp(34)))
         box.addView(header)
 
         val status = label(displayStatus(), 12f, 0xFFFFD166.toInt())
-        status.setPadding(dp(2), dp(10), dp(2), dp(2))
+        status.setPadding(dp(2), dp(7), dp(2), dp(1))
         statusView = status
         box.addView(status)
 
@@ -290,13 +290,13 @@ class OverlayService : Service() {
             closeApplication(detail)
         }
 
-        val hint = label("İlk kullanım: tahtayı başlangıç diziliminde gösterip kalibrasyonun tamamlanmasını bekle.", 10f, 0xFFB8C4D6.toInt())
-        hint.setPadding(0, dp(10), 0, 0)
+        val hint = label("İlk kullanım: tahtayı başlangıç diziliminde gösterip kalibrasyonun tamamlanmasını bekle.", 9f, 0xFFB8C4D6.toInt())
+        hint.setPadding(0, dp(7), 0, 0)
         box.addView(hint)
 
-        val footer = label("Kapatmak için G düğmesine dokun", 10f, 0xFF8998AE.toInt())
+        val footer = label("Kapatmak için G düğmesine dokun", 9f, 0xFF8998AE.toInt())
         footer.gravity = Gravity.CENTER
-        footer.setPadding(0, dp(12), 0, 0)
+        footer.setPadding(0, dp(8), 0, 0)
         box.addView(footer)
 
         box.setOnTouchListener { _, event ->
@@ -307,7 +307,7 @@ class OverlayService : Service() {
         }
 
         val params = WindowManager.LayoutParams(
-            dp(270), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(245), WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
