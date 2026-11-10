@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : ComponentActivity() {
     private var waitingForOverlayPermission = false
     private var startupStarted = false
+    private var waitingForUsageAccess = false
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -50,6 +51,11 @@ class MainActivity : ComponentActivity() {
 
     private fun continueStartup() {
         if (isFinishing || startupStarted || waitingForOverlayPermission) return
+        if (!hasUsageAccess()) {
+            waitingForUsageAccess = true
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            return
+        }
         if (!Settings.canDrawOverlays(this)) {
             waitingForOverlayPermission = true
             startActivity(Intent(
@@ -63,10 +69,32 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (waitingForOverlayPermission && Settings.canDrawOverlays(this)) {
+        if (waitingForUsageAccess && hasUsageAccess()) {
+            waitingForUsageAccess = false
+            continueStartup()
+        } else if (waitingForOverlayPermission && Settings.canDrawOverlays(this)) {
             waitingForOverlayPermission = false
             startFloatingUiAndRequestCapture()
         }
+    }
+
+    private fun hasUsageAccess(): Boolean {
+        val appOps = getSystemService(APP_OPS_SERVICE) as android.app.AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= 29) {
+            appOps.unsafeCheckOpNoThrow(
+                "android:get_usage_stats",
+                android.os.Process.myUid(),
+                packageName
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                "android:get_usage_stats",
+                android.os.Process.myUid(),
+                packageName
+            )
+        }
+        return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
 
     private fun startFloatingUiAndRequestCapture() {
