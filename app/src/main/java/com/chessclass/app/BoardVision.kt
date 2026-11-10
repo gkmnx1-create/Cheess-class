@@ -21,7 +21,6 @@ object BoardVision {
     private var aiBottomSide: Side? = null
     private var castlingRights: String? = null
     private var enPassantTarget: String = "-"
-    private var lastFen: String? = null
 
     @Synchronized
     fun initialize(context: Context) {
@@ -35,7 +34,6 @@ object BoardVision {
         aiBottomSide = null
         castlingRights = null
         enPassantTarget = "-"
-        lastFen = null
     }
 
     fun inspect(bitmap: Bitmap): String = scan(bitmap).summary
@@ -84,8 +82,7 @@ object BoardVision {
                     castlingRights = "KQkq"
                     enPassantTarget = "-"
                     sideToMove = null
-                    lastFen = null
-                    ScanResult("Eski tanıma kalibre edildi • İlk hamle bekleniyor", null, 0)
+                            ScanResult("Eski tanıma kalibre edildi • İlk hamle bekleniyor", null, 0)
                 }
             } else {
                 ScanResult("Tahta bulundu • Eğitilmiş AI modeli yok; eski kalibrasyon başlangıç dizilimi bekliyor", null, 0)
@@ -160,7 +157,6 @@ object BoardVision {
 
         sideToMove = turn
         lastGrid = copyGrid(grid)
-        lastFen = fen
         return ScanResult(
             (if (ai) "AI tanıdı" else "Eski tanıma") + " • " + countPieces(grid) +
                 " taş • Sıra: " + if (turn == Side.WHITE) "Beyaz" else "Siyah",
