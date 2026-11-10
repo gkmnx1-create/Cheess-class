@@ -68,7 +68,7 @@ class OverlayService : Service() {
             typeface = Typeface.DEFAULT_BOLD
             background = rounded(0xFFB8862B.toInt(), 0xFFFFD66B.toInt(), 28)
             elevation = dp(8).toFloat()
-            contentDescription = "CHESS CLASS panelini aç"
+            contentDescription = "GX panelini aç"
             var downX = 0f
             var downY = 0f
             var startX = 0
@@ -129,18 +129,18 @@ class OverlayService : Service() {
         Thread {
             val result = runCatching { StockfishEngine(this).analyzeFen(fen, 14) }
                 .getOrElse { "Hata: " + (it.message ?: "Motor başlatılamadı") }
-            mainHandler.post { status.text = latestSummary + "\n" + result }
+            mainHandler.post { status.text = latestSummary + "\n" + result + if (result.startsWith("Hata:")) "" else "\n✓ Analiz tamamlandı" }
         }.start()
     }
 
     private fun stopScreenCapture(status: TextView) {
         stopService(Intent(this, ScreenCaptureService::class.java))
         latestFen = null
-        status.text = "Ekran yakalama durduruldu"
+        status.text = "✓ Ekran yakalama durduruldu"
     }
 
     private fun closeApplication(status: TextView) {
-        status.text = "CHESS CLASS kapatılıyor…"
+        status.text = "✓ GX kapatılıyor…"
         stopService(Intent(this, ScreenCaptureService::class.java))
         closePanel()
         stopSelf()
@@ -198,8 +198,8 @@ class OverlayService : Service() {
         val titles = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), 0, 0, 0)
-            addView(label("CHESS CLASS", 16f, Color.WHITE, true))
-            addView(label("Hızlı yardımcı panel", 11f, 0xFFB8C4D6.toInt()))
+            addView(label("GX", 18f, Color.WHITE, true))
+            addView(label("Akıllı satranç yardımcısı", 11f, 0xFFB8C4D6.toInt()))
         }
         header.addView(brand)
         header.addView(titles, LinearLayout.LayoutParams(
@@ -228,7 +228,7 @@ class OverlayService : Service() {
         addAction(box, "Ⅱ  Ekran yakalamayı durdur", "Ekran görüntüsü alımını kapat") { detail ->
             stopScreenCapture(detail)
         }
-        addAction(box, "⏻  Uygulamayı tamamen kapat", "G düğmesini kaldırır ve ekran yakalamayı durdurur") { detail ->
+        addAction(box, "⏻  GX uygulamasını kapat", "G düğmesini kaldırır ve ekran yakalamayı durdurur") { detail ->
             closeApplication(detail)
         }
 
