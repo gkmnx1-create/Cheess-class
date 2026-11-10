@@ -1,63 +1,66 @@
 package com.chessclass.app
 
 import android.graphics.Bitmap
+import com.chessclass.app.vision.BoardDetector
+import com.chessclass.app.vision.FenBuilder
+import com.chessclass.app.vision.MoveAnalyzer
+import com.chessclass.app.vision.PieceClassifier
+import com.chessclass.app.vision.Side
 
 object BoardVision {
     data class ScanResult(val summary: String, val fen: String?, val recognized: Int)
+    private val classifier = PieceClassifier()
+    private var lastGrid: Array<CharArray>? = null
+    private var sideToMove = Side.WHITE
 
-    private val fenPieces = mapOf(
-        "sK" to 'k', "sV" to 'q', "sF" to 'b', "sR" to 'r', "sN" to 'n', "sP" to 'p',
-        "bK" to 'K', "bV" to 'Q', "bF" to 'B', "bR" to 'R', "bN" to 'N', "bP" to 'P'
-    )
+    @Synchronized fun reset() {
+        classifier.reset()
+        lastGrid = null
+        sideToMove = Side.WHITE
+    }
 
     fun inspect(bitmap: Bitmap): String = scan(bitmap).summary
 
-    fun scan(bitmap: Bitmap): ScanResult {
-        if (bitmap.width < 300 || bitmap.height < 500)
+    @Synchronized fun scan(bitmap: Bitmap): ScanResult {
+        if (bitmap.width < 300 || bitmap.height < 300)
             return ScanResult("Ekran boyutu uygun değil", null, 0)
 
-        // Board bounds for the portrait chess-game layout currently being tested.
-        val left = (bitmap.width * 0.012).toInt()
-        val right = (bitmap.width * 0.988).toInt()
-        val top = (bitmap.height * 0.268).toInt()
-        val bottom = (bitmap.height * 0.714).toInt()
-        val boardWidth = right - left
-        val boardHeight = bottom - top
-        if (boardWidth <= 0 || boardHeight <= 0)
-            return ScanResult("Tahta alanı bulunamadı", null, 0)
+        val board = BoardDetector.locate(bitmap)
+            ?: return ScanResult("Satranç tahtası aranıyor…", null, 0)
 
-        var recognized = 0
-        val rows = ArrayList<String>()
-        val names = linkedMapOf<String, Int>()
-        for (rank in 0 until 8) {
-            val row = StringBuilder()
-            var empty = 0
-            for (file in 0 until 8) {
-                val x0 = left + file * boardWidth / 8
-                val x1 = left + (file + 1) * boardWidth / 8
-                val y0 = top + rank * boardHeight / 8
-                val y1 = top + (rank + 1) * boardHeight / 8
-                val type = PieceTemplateClassifier.classify(bitmap, x0, y0, x1, y1)
-                val piece = type?.let { fenPieces[it] }
-                if (piece != null) {
-                    if (empty > 0) { row.append(empty); empty = 0 }
-                    row.append(piece)
-                    recognized++
-                    names[type] = (names[type] ?: 0) + 1
-                } else {
-                    empty++
-                }
+        if (!classifier.isTrained) {
+            val trained = classifier.tryBootstrap(bitmap, board)
+            return if (trained) {
+                lastGrid = null
+                ScanResult("Tahta bulundu • Kalibrasyon tamamlandı (" + board.confidence.toInt() + ") • Konum okunuyor", null, 0)
+            } else {
+                ScanResult("Tahta bulundu • Kalibrasyon için başlangıç dizilimini göster", null, 0)
             }
-            if (empty > 0) row.append(empty)
-            rows.add(row.toString())
         }
 
-        val detail = if (names.isEmpty()) "eşleşme yok" else names.entries.joinToString(", ") {
-            "${it.key}: ${it.value}"
+        val grid = classifier.classifyBoard(bitmap, board)
+            ?: return ScanResult("Tahta örneklenemedi", null, 0)
+
+        val previous = lastGrid
+        if (previous != null) {
+            val move = MoveAnalyzer.analyze(previous, grid)
+            if (move.mover != null) {
+                sideToMove = if (move.mover == Side.WHITE) Side.BLACK else Side.WHITE
+            }
         }
-        val fen = if (recognized >= 20) rows.joinToString("/") + " w - - 0 1" else null
-        val summary = "Taş eşleşmesi: $recognized/64 • $detail" +
-            if (fen == null) " • Analiz için daha fazla taş tanınmalı" else " • Tahta hazır"
-        return ScanResult(summary, fen, recognized)
+
+        val fen = FenBuilder.build(grid, classifier.bootstrapSide, sideToMove)
+        if (fen == null) {
+            return ScanResult("Tahta bulundu • Taşlar okunuyor, konum henüz doğrulanamadı", null, countPieces(grid))
+        }
+
+        classifier.commitConfirmed(grid, bitmap, board)
+        lastGrid = Array(8) { r -> grid[r].clone() }
+        val recognized = countPieces(grid)
+        val turn = if (sideToMove == Side.WHITE) "Beyaz" else "Siyah"
+        return ScanResult("Tahta hazır • " + recognized + " taş • Sıra: " + turn, fen, recognized)
     }
+
+    private fun countPieces(grid: Array<CharArray>): Int =
+        grid.sumOf { row -> row.count { it != '.' && it != 0.toChar() } }
 }
