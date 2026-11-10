@@ -112,7 +112,7 @@ object BoardVision {
         val copy = copyGrid(grid)
         recentAiFrames.addLast(copy)
         while (recentAiFrames.size > 3) recentAiFrames.removeFirst()
-        val match = recentAiFrames.firstOrNull { previous ->
+        val match = recentAiFrames.dropLast(1).firstOrNull { previous ->
             previous.indices.all { r -> previous[r].contentEquals(copy[r]) }
         }
         if (match != null) return copyGrid(match)
