@@ -7,6 +7,7 @@ Android için Türkçe satranç yardımcısı.
 - Android ekran yakalama (MediaProjection)
 - Ekran üzerinde yüzen GX kontrolü ve hamle önerisi
 - Satranç tahtasını bulma ve 8×8 kareleri örnekleme
+- Tahta desenini hem parlaklık hem renk tonu farkıyla arama; aynı parlaklıktaki ama farklı renkteki kare temalarını da yakalamaya çalışma
 - Başlangıç diziliminden taş görünümlerini kalibre etme
 - Beyaz/siyah piyon, at, fil, kale, vezir ve şah sınıfları
 - Kalibrasyon sırasında aynı taş türünün birden fazla örneğinden görsel prototip üretme
@@ -19,7 +20,7 @@ Chess Clash'te taş setlerinin görselleri değişebildiği için sınıflandır
 
 **İlk kullanımda:** Chess Clash'i standart başlangıç konumunda açın, ekran yakalamayı başlatın ve kalibrasyonun tamamlanmasını bekleyin. Taş seti değişirse yeniden kalibrasyon yapılmalıdır.
 
-Bu yöntem tüm mevcut/gelecekteki Chess Clash kostümlerinde doğruluk garantisi vermez. Animasyon, parıltı, tahta teması, yakınlaştırma ve ekran ölçeklemesi tanımayı etkileyebilir. Farklı set ekran görüntüleriyle test edilip eşikler ve örnekler iyileştirilmelidir.
+Tahta bulucu artık yalnızca gri ton/parlaklık farkına bağlı değildir; karelerin renk tonu farkını da değerlendirir. Böylece farklı renk paletli tahta temalarına daha dayanıklı olması hedeflenir. Ancak desenli dokular, animasyonlar, parıltılar, tahta kenarlıkları, yakınlaştırma ve ekran ölçeklemesi hâlâ algılamayı etkileyebilir. Tüm Chess Clash temalarında doğruluk garantisi yoktur; gerçek ekran görüntüleriyle test edilip eşikler iyileştirilmelidir.
 
 ## Derleme
 
