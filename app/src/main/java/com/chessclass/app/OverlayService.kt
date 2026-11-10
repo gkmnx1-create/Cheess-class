@@ -97,7 +97,8 @@ class OverlayService : Service() {
 
         bubbleParams = WindowManager.LayoutParams(
             dp(56), dp(56), overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_SECURE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(14) }
 
@@ -379,7 +380,8 @@ class OverlayService : Service() {
             suggestionParams = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
                 overlayType, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_SECURE,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.END or Gravity.CENTER_VERTICAL
@@ -519,7 +521,8 @@ class OverlayService : Service() {
             overlayType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_SECURE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(12) }
         panel = box
