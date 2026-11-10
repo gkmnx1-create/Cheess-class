@@ -180,6 +180,8 @@ class OverlayService : Service() {
         val diagnosis = when {
             lower.contains("ekran boyutu uygun değil") ->
                 "HATA • EKRAN\nEkran görüntüsü analiz için çok küçük. Uygun ekran boyutu bekleniyor."
+            lower.contains("ekran görüntüsü işlenemedi") ->
+                "HATA • EKRAN İŞLEME\n" + raw + "\nEkran yakalama veya görüntü işleme aşamasında hata oluştu; yakalamayı yeniden başlat."
             lower.contains("tahta örneklenemedi") ->
                 "HATA • TAHTA OKUMA\nTahta bulundu ancak kareler okunamadı. Tahtanın tamamının görünür olduğundan emin ol."
             lower.contains("bazı karelerden emin değil") ->
