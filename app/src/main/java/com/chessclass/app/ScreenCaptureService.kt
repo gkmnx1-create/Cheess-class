@@ -127,6 +127,7 @@ class ScreenCaptureService : Service() {
             null,
             mainHandler
         )
+        sendCaptureStatus(virtualDisplay != null)
         return START_NOT_STICKY
     }
 
@@ -163,7 +164,13 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    private fun sendCaptureStatus(active: Boolean) {
+        sendBroadcast(Intent(ACTION_CAPTURE_STATUS).setPackage(packageName)
+            .putExtra(EXTRA_CAPTURE_ACTIVE, active))
+    }
+
     private fun releaseCapture(stopProjection: Boolean = true) {
+        sendCaptureStatus(false)
         imageReader?.setOnImageAvailableListener(null, null)
         virtualDisplay?.release()
         virtualDisplay = null
@@ -184,6 +191,8 @@ class ScreenCaptureService : Service() {
 
     companion object {
         const val ACTION_BOARD_UPDATED = "com.chessclass.app.BOARD_UPDATED"
+        const val ACTION_CAPTURE_STATUS = "com.chessclass.app.CAPTURE_STATUS"
+        const val EXTRA_CAPTURE_ACTIVE = "capture_active"
         const val EXTRA_FEN = "board_fen"
         const val EXTRA_SUMMARY = "board_summary"
         const val EXTRA_RESULT_CODE = "capture_result_code"
