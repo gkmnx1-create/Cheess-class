@@ -1,0 +1,87 @@
+package com.chessclass.app
+
+import android.app.Service
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.os.Build
+import android.os.IBinder
+import android.view.Gravity
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
+
+class OverlayService : Service() {
+    private lateinit var windowManager: WindowManager
+    private var bubble: Button? = null
+    private var panel: LinearLayout? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
+        bubble = Button(this).apply {
+            text = "♟ CHESS"
+            setOnClickListener { togglePanel(params, type) }
+        }
+        windowManager.addView(bubble, params)
+    }
+
+    private fun togglePanel(params: WindowManager.LayoutParams, type: Int) {
+        if (panel != null) {
+            windowManager.removeView(panel)
+            panel = null
+            return
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28, 20, 28, 20)
+            setBackgroundColor(0xEE101B2D.toInt())
+            addView(TextView(this@OverlayService).apply {
+                text = "CHESS CLASS"
+                textSize = 20f
+                setTextColor(0xFFFFD166.toInt())
+            })
+            addView(TextView(this@OverlayService).apply {
+                text = "Antrenman ve oyun sonrası analiz paneli.\nEkran görüntüsü tanıma ve Stockfish sonraki aşamada."
+                textSize = 14f
+                setTextColor(0xFFFFFFFF.toInt())
+            })
+            addView(Button(this@OverlayService).apply {
+                text = "Kapat"
+                setOnClickListener {
+                    panel?.let { windowManager.removeView(it) }
+                    panel = null
+                }
+            })
+        }
+        val panelParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
+        panel = box
+        windowManager.addView(box, panelParams)
+    }
+
+    override fun onDestroy() {
+        bubble?.let { windowManager.removeView(it) }
+        panel?.let { windowManager.removeView(it) }
+        bubble = null
+        panel = null
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
