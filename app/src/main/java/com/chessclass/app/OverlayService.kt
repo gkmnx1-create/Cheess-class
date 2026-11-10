@@ -53,7 +53,8 @@ class OverlayService : Service() {
             if (intent?.action != ScreenCaptureService.ACTION_BOARD_UPDATED) return
             latestFen = intent.getStringExtra(ScreenCaptureService.EXTRA_FEN)
             latestSummary = intent.getStringExtra(ScreenCaptureService.EXTRA_SUMMARY) ?: "Tahta okundu"
-            analysisSucceeded = false
+            val incomingKey = latestFen?.split(" ")?.take(4)?.joinToString(" ")
+            if (incomingKey != lastAnalyzedPosition) analysisSucceeded = false
             refreshIndicators()
             statusView?.text = displayStatus()
             val fen = latestFen
@@ -170,6 +171,8 @@ class OverlayService : Service() {
         val requestGeneration = ++analysisGeneration
         lastAnalyzedPosition = positionKey
         latestAnalysis = "⏳ Yeni konum algılandı • Hamle hesaplanıyor…"
+        analysisSucceeded = false
+        refreshIndicators()
         statusView?.text = displayStatus()
 
         Thread {
