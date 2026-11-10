@@ -34,6 +34,7 @@ class OverlayService : Service() {
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
         bubble = Button(this).apply {
             text = "♟ CHESS"
+            setOnClickListener { togglePanel(params, type) }
             var downX = 0f
             var downY = 0f
             var startX = 0
