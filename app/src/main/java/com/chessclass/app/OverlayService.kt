@@ -167,8 +167,32 @@ class OverlayService : Service() {
             if (bold) typeface = Typeface.DEFAULT_BOLD
         }
 
-    private fun displayStatus(): String =
-        if (latestAnalysis.isBlank()) latestSummary else latestSummary + "\n" + latestAnalysis
+    private fun displayStatus(): String {
+        val raw = if (latestAnalysis.isBlank()) latestSummary else latestSummary + "\n" + latestAnalysis
+        val lower = raw.lowercase()
+        val diagnosis = when {
+            lower.contains("ekran boyutu uygun değil") ->
+                "HATA • EKRAN\nEkran görüntüsü analiz için çok küçük. Uygun ekran boyutu bekleniyor."
+            lower.contains("tahta örneklenemedi") ->
+                "HATA • TAHTA OKUMA\nTahta bulundu ancak kareler okunamadı. Tahtanın tamamının görünür olduğundan emin ol."
+            lower.contains("bazı karelerden emin değil") ->
+                "HATA • TAŞ TANIMA\nBazı karelerdeki taşlar net seçilemedi. Görüntü netleşince yeniden denenecek."
+            lower.contains("konumu doğrulayamadı") || lower.contains("konum doğrulanamadı") ||
+                lower.contains("doğrulamadan geçmedi") ->
+                "HATA • KONUM DOĞRULAMA\n" + raw
+            lower.contains("fen'e çevrilemedi") ->
+                "HATA • POZİSYON OLUŞTURMA\nOkunan taş dizilimi satranç konumuna dönüştürülemedi."
+            lower.contains("hamle sırası") && lower.contains("bilinmiyor") ->
+                "BİLGİ • HAMLE SIRASI\nKimin oynayacağı henüz belirlenemedi. Bir hamle daha algılanması bekleniyor."
+            lower.contains("hata:") ->
+                "HATA • HAMLE MOTORU\n" + raw.substringAfter("Hata:", raw).trim() +
+                    "\nMotor yeniden denenebilir; sorun sürerse teknik kayıt incelenmeli."
+            lower.contains("bestmove") && lower.contains("döndürmedi") ->
+                "HATA • HAMLE MOTORU\nMotor geçerli hamle üretmedi. Analiz yeniden denenecek."
+            else -> raw
+        }
+        return diagnosis
+    }
 
     private fun runStockfish(status: TextView) {
         val fen = latestFen
