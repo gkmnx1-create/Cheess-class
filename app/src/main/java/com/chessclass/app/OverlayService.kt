@@ -2,7 +2,9 @@ package com.chessclass.app
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -16,7 +18,7 @@ import kotlin.math.abs
 
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
-    private var bubble: Button? = null
+    private var bubble: TextView? = null
     private var panel: LinearLayout? = null
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -29,15 +31,18 @@ class OverlayService : Service() {
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
 
         bubbleParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType,
+            dp(58), dp(58), overlayType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(16) }
 
-        bubble = Button(this).apply {
-            text = "♟ CHESS"
+        bubble = TextView(this).apply {
+            text = "★\nG"
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            setBackgroundColor(Color.rgb(183, 132, 35))
             setOnClickListener { togglePanel() }
             var downX = 0f
             var downY = 0f
@@ -72,57 +77,58 @@ class OverlayService : Service() {
         windowManager.addView(bubble, bubbleParams)
     }
 
-    private fun closePanel() {
-        panel?.let {
-            try { windowManager.removeView(it) } catch (_: Exception) {}
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun addMenuOption(box: LinearLayout, label: String, action: () -> Unit) {
+        box.addView(Button(this).apply {
+            text = label
+            isAllCaps = false
+            setOnClickListener { action() }
+        })
+    }
+
+    private fun openMainApp() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+        startActivity(intent)
+    }
+
+    private fun closePanel() {
+        panel?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         panel = null
     }
 
     private fun togglePanel() {
-        if (panel != null) {
-            closePanel()
-            return
-        }
+        if (panel != null) { closePanel(); return }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(28, 20, 28, 20)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
             setBackgroundColor(0xEE101B2D.toInt())
             addView(TextView(this@OverlayService).apply {
-                text = "CHESS CLASS"
-                textSize = 20f
+                text = "★  G"
+                textSize = 22f
+                typeface = Typeface.DEFAULT_BOLD
                 setTextColor(0xFFFFD166.toInt())
+                gravity = Gravity.CENTER
             })
-            addView(TextView(this@OverlayService).apply {
-                text = "Antrenman ve oyun sonrasi analiz paneli.\nTahta tanima ve Stockfish sonraki asamada."
-                textSize = 14f
-                setTextColor(0xFFFFFFFF.toInt())
-            })
-            addView(Button(this@OverlayService).apply {
-                text = "Paneli kapat"
-                setOnClickListener { closePanel() }
-            })
-            addView(Button(this@OverlayService).apply {
-                text = "Yüzen düğmeyi de kapat"
-                setOnClickListener { stopSelf() }
-            })
+            addMenuOption(this, "Fotoğraftan Tahta Yükle") { openMainApp() }
+            addMenuOption(this, "Stockfish Analizi") { openMainApp() }
+            addMenuOption(this, "Paneli Kapat") { closePanel() }
+            addMenuOption(this, "Yüzen Düğmeyi Kapat") { stopSelf() }
         }
-        val panelParams = WindowManager.LayoutParams(
+        val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType,
-            0,
-            PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 20 }
+            overlayType, 0, PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(16) }
         panel = box
-        windowManager.addView(box, panelParams)
+        windowManager.addView(box, params)
     }
 
     override fun onDestroy() {
         closePanel()
-        bubble?.let {
-            try { windowManager.removeView(it) } catch (_: Exception) {}
-        }
+        bubble?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         bubble = null
         super.onDestroy()
     }
