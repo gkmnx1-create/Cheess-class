@@ -18,7 +18,7 @@ public class BoardDetector {
 
     private static final String TAG = "OC/Detector";
     private static final int WORK_MAX_EDGE = 360;
-    private static final double ACCEPT_THRESHOLD = 18.0;
+    private static final double ACCEPT_THRESHOLD = 10.0;
 
     public static Board locate(Bitmap src) {
         if (src == null) return null;
@@ -62,14 +62,14 @@ public class BoardDetector {
 
         Candidate best = null;
 
-        int sizeStep = Math.max(4, (maxSide - minSide) / 24);
+        int sizeStep = Math.max(2, (maxSide - minSide) / 48);
         for (int s = minSide; s <= maxSide; s += sizeStep) {
             int cell = s / 8;
             if (cell < 5) continue;
             int corrected = cell * 8;
-            int posStep = Math.max(3, cell / 2);
-            for (int y = 0; y + corrected < H; y += posStep) {
-                for (int x = 0; x + corrected < W; x += posStep) {
+            int posStep = Math.max(2, cell / 3);
+            for (int y = 0; y + corrected <= H; y += posStep) {
+                for (int x = 0; x + corrected <= W; x += posStep) {
                     double score = checkerScore(ii, Wp, x, y, cell);
                     if (best == null || score > best.score) {
                         best = new Candidate(x, y, corrected, cell, score);
@@ -78,7 +78,7 @@ public class BoardDetector {
             }
         }
 
-        if (best == null) return null;
+        if (best == null) { Log.w(TAG, "locate: no candidate in " + W + "x" + H); return null; }
 
         Candidate refined = refine(ii, Wp, W, H, best);
 
@@ -87,7 +87,7 @@ public class BoardDetector {
                 + " bbox=(" + refined.x + "," + refined.y + ",s=" + refined.side + ")"
                 + " in " + elapsed + " ms");
 
-        if (refined.score < ACCEPT_THRESHOLD) return null;
+        if (refined.score < ACCEPT_THRESHOLD) { Log.w(TAG, "locate rejected: score=" + refined.score + " threshold=" + ACCEPT_THRESHOLD); return null; }
 
         int left = Math.round(refined.x / scale);
         int top  = Math.round(refined.y / scale);
