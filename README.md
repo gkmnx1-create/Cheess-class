@@ -32,3 +32,15 @@ Projeyi Android Studio ile açın ve Gradle senkronizasyonunu tamamlayın. Uygul
 - Tahta tarama akışı: `app/src/main/java/com/chessclass/app/BoardVision.kt`
 - Ekran yakalama: `app/src/main/java/com/chessclass/app/ScreenCaptureService.kt`
 - Yüzen panel ve öneri: `app/src/main/java/com/chessclass/app/OverlayService.kt`
+
+
+## Yapay zekâ ile 64 kare tanıma (hazırlık aşaması)
+
+Android tarafında LiteRT/TensorFlow Lite çalışma zamanı ve `LiteRtSquareClassifier` eklendi. Modelin beklenen sözleşmesi:
+
+- Dosya: `app/src/main/assets/gx_chess_64.tflite`
+- Girdi: `[1, 64, 64, 3]`, RGB float32, 0–1 aralığı
+- Çıktı: `[1, 13]`; sınıf sırası: boş, beyaz P/N/B/R/Q/K, siyah p/n/b/r/q/k
+- Güven eşiği: 0.72; eşik altındaki kareler tahmin edilmez.
+
+**Model dosyası henüz ekli değildir.** Bu nedenle uygulama şu an eğitilmiş yapay zekâ ile taş tanıdığı iddiasında bulunmaz; mevcut algılama yolu korunur. Model, gerçek Chess Clash ekran görüntülerinden etiketli 64-kare örnekleriyle eğitilip doğrulandıktan sonra assets klasörüne eklenmelidir. Veri kümesinde farklı tahta temaları, taş setleri, ekran ölçekleri ve oyun içi vurgular bulunmalıdır.
