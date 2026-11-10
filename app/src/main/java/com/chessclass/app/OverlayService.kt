@@ -32,6 +32,7 @@ class OverlayService : Service() {
     private var latestAnalysis = ""
     private var lastAnalyzedPosition = ""
     @Volatile private var analysisInProgress = false
+    @Volatile private var analysisGeneration = 0L
     private var receiverRegistered = false
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -151,6 +152,7 @@ class OverlayService : Service() {
         if (!force && positionKey == lastAnalyzedPosition) return
 
         analysisInProgress = true
+        val requestGeneration = ++analysisGeneration
         lastAnalyzedPosition = positionKey
         latestAnalysis = "⏳ Yeni konum algılandı • Hamle hesaplanıyor…"
         statusView?.text = displayStatus()
@@ -166,19 +168,28 @@ class OverlayService : Service() {
                 else -> "✓ Önerilen hamle: $bestMove"
             }
             mainHandler.post {
-                latestAnalysis = resultText
+                if (requestGeneration != analysisGeneration) return@post
                 analysisInProgress = false
-                statusView?.text = displayStatus()
                 val currentFen = latestFen
-                if (!currentFen.isNullOrBlank()) {
-                    val currentKey = currentFen.split(" ").take(4).joinToString(" ")
-                    if (currentKey != lastAnalyzedPosition) startAnalysis(currentFen, currentKey)
+                val currentKey = currentFen?.split(" ")?.take(4)?.joinToString(" ")
+                if (currentFen.isNullOrBlank()) {
+                    latestAnalysis = "Tahta doğrulanamadı • Yeni konum bekleniyor"
+                    lastAnalyzedPosition = ""
+                } else if (currentKey != positionKey) {
+                    latestAnalysis = "⏳ Tahta değişti • Güncel konum analiz ediliyor…"
+                    lastAnalyzedPosition = positionKey
+                    startAnalysis(currentFen, currentKey!!)
+                } else {
+                    latestAnalysis = resultText
                 }
+                statusView?.text = displayStatus()
             }
         }.start()
     }
 
     private fun stopScreenCapture(status: TextView) {
+        analysisGeneration++
+        analysisInProgress = false
         stopService(Intent(this, ScreenCaptureService::class.java))
         latestFen = null
         latestAnalysis = ""
