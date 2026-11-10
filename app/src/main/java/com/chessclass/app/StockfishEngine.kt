@@ -65,8 +65,17 @@ class StockfishEngine(private val context: Context) {
                     writer.write("go movetime 1400\n")
                     writer.flush()
                     var bestMove: String? = null
+                    var deepestInfo = ""
+                    var deepestDepth = -1
                     while (true) {
                         val line = reader.readLine() ?: break
+                        if (line.startsWith("info depth ")) {
+                            val depth = Regex("""\\bdepth (\\d+)""").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                            if (depth >= deepestDepth) {
+                                deepestDepth = depth
+                                deepestInfo = line
+                            }
+                        }
                         if (line.startsWith("bestmove")) {
                             bestMove = line
                             break
@@ -74,7 +83,7 @@ class StockfishEngine(private val context: Context) {
                     }
                     when {
                         timedOut.get() -> "Hata: Stockfish analiz zaman aşımına uğradı"
-                        bestMove != null -> bestMove
+                        bestMove != null -> bestMove + if (deepestInfo.isNotBlank()) "\\n" + deepestInfo else ""
                         else -> "Hata: Stockfish hamle üretemedi"
                     }
                 }
