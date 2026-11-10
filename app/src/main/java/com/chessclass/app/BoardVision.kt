@@ -72,6 +72,7 @@ object BoardVision {
 
     private fun acceptGrid(grid: Array<CharArray>, ai: Boolean): ScanResult {
         val previous = lastGrid
+        var nextSideToMove = sideToMove
         if (previous != null) {
             val move = MoveAnalyzer.analyze(previous, grid)
             if (move.kind == MoveAnalyzer.Kind.UNKNOWN) {
@@ -81,7 +82,7 @@ object BoardVision {
                 if (move.mover != sideToMove) {
                     return ScanResult("Tahta bulundu • Hamle sırası doğrulanıyor…", null, countPieces(grid), ai)
                 }
-                sideToMove = if (move.mover == Side.WHITE) Side.BLACK else Side.WHITE
+                nextSideToMove = if (move.mover == Side.WHITE) Side.BLACK else Side.WHITE
             }
         }
 
@@ -94,9 +95,16 @@ object BoardVision {
             )
         }
 
-        val fen = FenBuilder.build(grid, Side.WHITE, sideToMove)
+        // The legacy classifier may be calibrated with black at the bottom.
+        // Normalize that orientation before creating FEN. The AI model currently
+        // assumes the standard white-at-bottom board orientation.
+        val boardOrientation = if (ai) Side.WHITE
+            else (fallbackClassifier.bootstrapSide() ?: Side.WHITE)
+        val fen = FenBuilder.build(grid, boardOrientation, nextSideToMove)
         if (fen == null) return ScanResult("Konum FEN'e çevrilemedi", null, countPieces(grid), ai)
 
+        // Commit turn/state only after the position has passed validation.
+        sideToMove = nextSideToMove
         lastGrid = Array(8) { r -> grid[r].clone() }
         lastFen = fen
         return ScanResult(
