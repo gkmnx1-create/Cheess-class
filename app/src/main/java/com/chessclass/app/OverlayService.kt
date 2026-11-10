@@ -14,6 +14,8 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.os.Handler
+import android.os.Looper
 import kotlin.math.abs
 
 class OverlayService : Service() {
@@ -22,6 +24,7 @@ class OverlayService : Service() {
     private var panel: LinearLayout? = null
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate() {
         super.onCreate()
@@ -110,6 +113,36 @@ class OverlayService : Service() {
         closePanel()
     }
 
+    private fun runStockfish(status: TextView) {
+        status.text = "Analiz ediliyor..."
+        Thread {
+            val result = runCatching { StockfishEngine(this).analyzeStartPosition() }
+                .getOrElse { "Hata: " + it.message }
+            mainHandler.post { status.text = result }
+        }.start()
+    }
+
+    private fun addDashboardAction(box: LinearLayout, label: String, action: (TextView) -> Unit) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        val status = TextView(this).apply {
+            text = ""
+            textSize = 12f
+            setTextColor(0xFFFFD166.toInt())
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+        }
+        val button = Button(this).apply {
+            text = label
+            isAllCaps = false
+            setOnClickListener { action(status) }
+        }
+        row.addView(button)
+        row.addView(status)
+        box.addView(row)
+    }
+
     private fun closePanel() {
         panel?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
         panel = null
@@ -128,9 +161,13 @@ class OverlayService : Service() {
                 setTextColor(0xFFFFD166.toInt())
                 gravity = Gravity.CENTER
             })
-            addMenuOption(this, "Ekran Yakalamayı Durdur") { stopScreenCapture() }
-            addMenuOption(this, "Paneli Kapat") { closePanel() }
-            addMenuOption(this, "Yüzen Düğmeyi Kapat") { stopSelf() }
+            addDashboardAction(this, "Stockfish'i Test Et") { status -> runStockfish(status) }
+            addDashboardAction(this, "Ekran Yakalamayı Durdur") { status ->
+                stopScreenCapture()
+                status.text = "Ekran yakalama durduruldu"
+            }
+            addDashboardAction(this, "Paneli Kapat") { closePanel() }
+            addDashboardAction(this, "Yüzen G Düğmesini Kapat") { stopSelf() }
         }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
