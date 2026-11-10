@@ -39,6 +39,7 @@ class OverlayService : Service() {
     private var latestFen: String? = null
     private var latestSummary = "Tahta henüz algılanmadı"
     private var latestAnalysis = ""
+    private var latestMoveSuggestion: String? = null
     private var lastAnalyzedPosition = ""
     @Volatile private var analysisInProgress = false
     @Volatile private var analysisGeneration = 0L
@@ -236,6 +237,7 @@ class OverlayService : Service() {
         stopService(Intent(this, ScreenCaptureService::class.java))
         latestFen = null
         latestAnalysis = ""
+        latestMoveSuggestion = null
         lastAnalyzedPosition = ""
         captureActive = false
         analysisSucceeded = false
@@ -326,13 +328,26 @@ class OverlayService : Service() {
     }
 
     private fun showSuggestion(move: String) {
+        latestMoveSuggestion = move
+        refreshFloatingInfo()
+    }
+
+    // The floating label beside G is the live status channel: it shows board
+    // detection, capture state, analysis progress/errors, and the final move.
+    private fun refreshFloatingInfo() {
+        val text = if (!latestMoveSuggestion.isNullOrBlank()) {
+            "ÖNERİ: $latestMoveSuggestion\n$latestSummary"
+        } else {
+            displayStatus()
+        }
         val view = suggestionView ?: TextView(this).apply {
-            textSize = 13f
+            textSize = 12f
             setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(9), dp(12), dp(9))
-            background = rounded(0xF51B2940.toInt(), 0xFF63D995.toInt(), 16)
+            maxWidth = dp(230)
+            setPadding(dp(11), dp(8), dp(11), dp(8))
+            background = rounded(0xF51B2940.toInt(), 0xFFFFD166.toInt(), 14)
             elevation = dp(10).toFloat()
             isClickable = false
         }.also {
@@ -349,7 +364,12 @@ class OverlayService : Service() {
             }
             windowManager.addView(it, suggestionParams)
         }
-        view.text = move
+        view.text = text
+        view.background = rounded(
+            if (!latestMoveSuggestion.isNullOrBlank()) 0xF51B2940.toInt() else 0xF51B2940.toInt(),
+            if (!latestMoveSuggestion.isNullOrBlank()) 0xFF63D995.toInt() else 0xFFFFD166.toInt(),
+            14
+        )
         view.visibility = View.VISIBLE
         suggestionParams?.let { params ->
             params.x = bubbleParams.x + bubbleParams.width + dp(2)
@@ -359,10 +379,12 @@ class OverlayService : Service() {
     }
 
     private fun hideSuggestion() {
-        suggestionView?.visibility = View.GONE
+        latestMoveSuggestion = null
+        refreshFloatingInfo()
     }
 
     private fun refreshIndicators() {
+        refreshFloatingInfo()
         analysisIndicator?.text = if (analysisSucceeded) "✓" else "✕"
         captureIndicator?.text = if (captureActive) "✓" else "✕"
         captureActionTitle?.text = if (captureActive) "Ⅱ  EKRAN YAKALAMAYI DURDUR" else "Ⅱ  EKRAN YAKALAMAYI BAŞLAT"
