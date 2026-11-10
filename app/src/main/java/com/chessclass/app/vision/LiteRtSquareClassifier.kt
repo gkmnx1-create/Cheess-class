@@ -2,114 +2,92 @@ package com.chessclass.app.vision
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Rect
-import org.tensorflow.lite.Interpreter
-import java.io.FileInputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.channels.FileChannel
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
+import java.nio.FloatBuffer
 
 /**
- * On-device 64-square classifier.
- *
- * Expected asset: assets/gx_chess_64.tflite
- * Input:  [1, 64, 64, 3] float32 RGB, values in [0, 1]
- * Output: [1, 13] float32 probabilities/logits in LABELS order.
- *
- * The trained model is intentionally not bundled until it has been trained
- * and validated on real Chess Clash screenshots.
+ * Android adapter for Fenshot chess-tiles-v2.onnx.
+ * Model input: float32 [64,1024], grayscale tiles in A1..H8 order.
+ * Model output: probs [64,13], labels "1KQRBNPkqrbnp".
  */
 class LiteRtSquareClassifier(context: Context) : AutoCloseable {
     data class Prediction(val piece: Char, val confidence: Float)
 
     companion object {
-        val LABELS = charArrayOf('.', 'P', 'N', 'B', 'R', 'Q', 'K',
-            'p', 'n', 'b', 'r', 'q', 'k')
-        private const val MODEL_FILE = "gx_chess_64.tflite"
-        private const val INPUT_SIZE = 64
-        private const val CLASS_COUNT = 13
-        private const val CONFIDENCE_THRESHOLD = 0.72f
+        private const val MODEL_FILE = "chess-tiles-v2.onnx"
+        private const val TILE_SIZE = 32
+        private const val TILE_PIXELS = TILE_SIZE * TILE_SIZE
+        private const val LABELS = "1KQRBNPkqrbnp"
+        private const val CONFIDENCE_THRESHOLD = 0.70f
     }
 
-    private val interpreter: Interpreter? = try {
-        val fd = context.assets.openFd(MODEL_FILE)
-        fd.use {
-            FileInputStream(it.fileDescriptor).channel.use { channel ->
-                val mapped = channel.map(FileChannel.MapMode.READ_ONLY, it.startOffset, it.declaredLength)
-                Interpreter(mapped, Interpreter.Options().apply { setNumThreads(4) })
-            }
+    private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
+    private val session: OrtSession? = try {
+        context.assets.open(MODEL_FILE).use { input ->
+            val bytes = input.readBytes()
+            env.createSession(bytes, OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(2)
+            })
         }
-    } catch (_: Exception) {
-        null
-    }
+    } catch (_: Exception) { null }
 
-    val isModelReady: Boolean get() = interpreter != null
+    val isModelReady: Boolean get() = session != null
 
     @Synchronized
     fun classifyBoard(bitmap: Bitmap, boardLeft: Int, boardTop: Int, boardSide: Int): Array<CharArray>? {
-        val model = interpreter ?: return null
-        if (boardSide <= 0) return null
-        val grid = Array(8) { CharArray(8) { '.' } }
-        val input = ByteBuffer.allocateDirect(1 * INPUT_SIZE * INPUT_SIZE * 3 * 4)
-            .order(ByteOrder.nativeOrder())
-        val output = Array(1) { FloatArray(CLASS_COUNT) }
+        val model = session ?: return null
+        if (boardSide <= 0 || boardLeft < 0 || boardTop < 0 ||
+            boardLeft + boardSide > bitmap.width || boardTop + boardSide > bitmap.height) return null
 
-        for (rank in 0 until 8) {
-            for (file in 0 until 8) {
-                val left = boardLeft + file * boardSide / 8
-                val top = boardTop + rank * boardSide / 8
-                val right = boardLeft + (file + 1) * boardSide / 8
-                val bottom = boardTop + (rank + 1) * boardSide / 8
-                // Exclude a small border so square highlights and grid lines
-                // have less influence on the piece classifier.
-                val insetX = ((right - left) * 0.08f).toInt()
-                val insetY = ((bottom - top) * 0.08f).toInt()
-                val crop = Rect(left + insetX, top + insetY, right - insetX, bottom - insetY)
-                if (crop.left < 0 || crop.top < 0 || crop.right > bitmap.width ||
-                    crop.bottom > bitmap.height || crop.width() < 2 || crop.height() < 2) return null
+        val pixels = IntArray(256 * 256)
+        val scaled = Bitmap.createBitmap(bitmap, boardLeft, boardTop, boardSide, boardSide)
+            .let { source ->
+                val resized = Bitmap.createScaledBitmap(source, 256, 256, true)
+                if (resized !== source) source.recycle()
+                resized
+            }
+        scaled.getPixels(pixels, 0, 256, 0, 0, 256, 256)
+        scaled.recycle()
 
-                val square = Bitmap.createBitmap(bitmap, crop.left, crop.top, crop.width(), crop.height())
-                val scaled = Bitmap.createScaledBitmap(square, INPUT_SIZE, INPUT_SIZE, true)
-                if (scaled !== square) square.recycle()
-                val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-                scaled.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
-                scaled.recycle()
-
-                input.clear()
-                for (pixel in pixels) {
-                    input.putFloat(((pixel shr 16) and 0xFF) / 255f)
-                    input.putFloat(((pixel shr 8) and 0xFF) / 255f)
-                    input.putFloat((pixel and 0xFF) / 255f)
-                }
-                input.rewind()
-                output[0].fill(0f)
-                model.run(input, output)
-
-                val scores = output[0]
-                if (scores.any { !it.isFinite() }) return null
-                // Accept either probability output or raw logits. Softmax converts
-                // logits to comparable confidence values before applying the threshold.
-                val sum = scores.sum()
-                val looksLikeProbabilities = scores.all { it >= 0f && it <= 1f } &&
-                    kotlin.math.abs(sum - 1f) < 0.08f
-                val probabilities = if (looksLikeProbabilities) scores else {
-                    val maxScore = scores.maxOrNull() ?: return null
-                    val exps = FloatArray(CLASS_COUNT) { kotlin.math.exp((scores[it] - maxScore).toDouble()).toFloat() }
-                    val total = exps.sum().takeIf { it > 0f && it.isFinite() } ?: return null
-                    FloatArray(CLASS_COUNT) { exps[it] / total }
-                }
-                var best = 0
-                for (i in 1 until CLASS_COUNT) if (probabilities[i] > probabilities[best]) best = i
-                val confidence = probabilities[best]
-                // Never invent a piece when the model is unsure.
-                if (confidence < CONFIDENCE_THRESHOLD) return null
-                grid[rank][file] = LABELS[best]
+        val input = FloatArray(64 * TILE_PIXELS)
+        for (rank in 0 until 8) for (file in 0 until 8) {
+            val tile = rank * 8 + file
+            val sourceY = (7 - rank) * TILE_SIZE
+            val inset = 1
+            for (y in 0 until TILE_SIZE) for (x in 0 until TILE_SIZE) {
+                val sx = file * TILE_SIZE + x
+                val sy = sourceY + y
+                val p = pixels[sy * 256 + sx]
+                val gray = (0.299f * ((p shr 16) and 255) +
+                    0.587f * ((p shr 8) and 255) + 0.114f * (p and 255)) / 255f
+                input[tile * TILE_PIXELS + y * TILE_SIZE + x] = gray
             }
         }
-        return grid
+
+        val tensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(input), longArrayOf(64, TILE_PIXELS.toLong()))
+        try {
+            val result = model.run(mapOf(model.inputNames.first() to tensor))
+            result.use {
+                val raw = it[model.outputNames.first()].get().value
+                val rows = raw as? Array<*> ?: return null
+                if (rows.size != 64) return null
+                val grid = Array(8) { CharArray(8) { '.' } }
+                for (rank in 0 until 8) for (file in 0 until 8) {
+                    val modelIndex = rank * 8 + file
+                    val scores = rows[modelIndex] as? FloatArray ?: return null
+                    if (scores.size != LABELS.length || scores.any { !it.isFinite() }) return null
+                    var best = 0
+                    for (i in 1 until scores.size) if (scores[i] > scores[best]) best = i
+                    if (scores[best] < CONFIDENCE_THRESHOLD) return null
+                    val label = LABELS[best]
+                    grid[7 - rank][file] = if (label == '1') '.' else label
+                }
+                return grid
+            }
+        } finally { tensor.close() }
     }
 
-    override fun close() {
-        interpreter?.close()
-    }
+    override fun close() { session?.close() }
 }
