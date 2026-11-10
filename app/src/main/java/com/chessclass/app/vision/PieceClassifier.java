@@ -259,9 +259,12 @@ public class PieceClassifier {
         // shadows, animation frames and small artwork differences.
         for (int offset = 0; offset < 6; offset++) {
             int type = firstType + offset;
-            if (typePrototypeCounts[type][squareTone] == 0) continue;
+            int prototypeTone = typePrototypeCounts[type][squareTone] > 0
+                    ? squareTone
+                    : (typePrototypeCounts[type][1 - squareTone] > 0 ? 1 - squareTone : -1);
+            if (prototypeTone < 0) continue;
             float distance = SquareSampler.lumDistance(
-                    sample.feature, typePrototypes[type][squareTone]);
+                    sample.feature, typePrototypes[type][prototypeTone]);
             if (distance < best) {
                 best = distance;
                 bestPiece = isWhitePiece
