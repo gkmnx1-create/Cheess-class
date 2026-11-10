@@ -31,6 +31,8 @@ class OverlayService : Service() {
     private var statusView: TextView? = null
     private var analysisIndicator: TextView? = null
     private var captureIndicator: TextView? = null
+    private var captureActionTitle: TextView? = null
+    private var captureActionDetail: TextView? = null
     private var closeIndicator: TextView? = null
     private var captureActive = false
     private var analysisSucceeded = false
@@ -261,10 +263,16 @@ class OverlayService : Service() {
         }
         when {
             title.contains("analiz", ignoreCase = true) -> analysisIndicator = indicator
-            title.contains("yakalamayı", ignoreCase = true) -> captureIndicator = indicator
+            title.contains("yakalamayı", ignoreCase = true) -> {
+                captureIndicator = indicator
+                captureActionTitle = heading
+                captureActionDetail = label(subtitle, 10f, 0xFFCFD8E6.toInt())
+            }
             else -> closeIndicator = indicator
         }
-        val detail = label(subtitle, 10f, 0xFFCFD8E6.toInt())
+        val detail = if (title.contains("yakalamayı", ignoreCase = true)) {
+            captureActionDetail ?: label(subtitle, 10f, 0xFFCFD8E6.toInt())
+        } else label(subtitle, 10f, 0xFFCFD8E6.toInt())
         detail.setPadding(0, dp(2), 0, 0)
         card.addView(titleRow)
         card.addView(detail)
@@ -346,6 +354,8 @@ class OverlayService : Service() {
     private fun refreshIndicators() {
         analysisIndicator?.text = if (analysisSucceeded) "✓" else "✕"
         captureIndicator?.text = if (captureActive) "✓" else "✕"
+        captureActionTitle?.text = if (captureActive) "Ⅱ  EKRAN YAKALAMAYI DURDUR" else "Ⅱ  EKRAN YAKALAMAYI BAŞLAT"
+        captureActionDetail?.text = if (captureActive) "Ekran paylaşımını ve tahta takibini kapat" else "Tahtayı algılamak için ekran paylaşımını başlat"
         closeIndicator?.text = "✓"
         captureIndicator?.setTextColor(if (captureActive) 0xFF63D995.toInt() else 0xFFFF6B6B.toInt())
         analysisIndicator?.setTextColor(if (analysisSucceeded) 0xFF63D995.toInt() else 0xFFFF6B6B.toInt())
@@ -358,6 +368,8 @@ class OverlayService : Service() {
         statusView = null
         analysisIndicator = null
         captureIndicator = null
+        captureActionTitle = null
+        captureActionDetail = null
         closeIndicator = null
     }
 
